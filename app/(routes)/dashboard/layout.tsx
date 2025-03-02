@@ -26,7 +26,6 @@ export const routes: RouteList = [
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
-
 /* Main layout for the dynamic User dashboard. Children must be wrapped wuth the onboarding context */
 export const DashboardLayout: React.FC<DashboardLayoutProps> = async ({
   children,

@@ -1,138 +1,13 @@
 // app/page.jsx
-"use client";
-
-import { useState } from "react";
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  Mail,
-  Check,
-  Zap,
-  Shield,
-  Star,
-  ChevronDown,
-  Menu,
-  X,
-} from "lucide-react";
+import { ArrowRight, Mail, Check, Zap, Shield, Star } from "lucide-react";
+import Header from "./header";
+import Faq from "./faq";
+import FramerDashboardShow from "./framer-dash-show";
 
 export default function HomePage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeAccordion, setActiveAccordion] = useState(null);
-
-  const toggleAccordion = (index: any) => {
-    setActiveAccordion(activeAccordion === index ? null : index);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 text-gray-900">
-      {/* Fixed Navigation */}
-      <nav className="fixed top-0 left-0 right-0 bg-white bg-opacity-90 backdrop-blur-sm shadow-sm z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <Mail className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold">Emprendy</span>
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <a
-                href="#features"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Features
-              </a>
-              <a
-                href="#pricing"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Pricing
-              </a>
-              <a
-                href="#testimonials"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Testimonials
-              </a>
-              <a
-                href="#faq"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                FAQ
-              </a>
-              <a
-                href="/login"
-                className="text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Login
-              </a>
-              <a
-                href="/signup"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Get Started
-              </a>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-gray-600 hover:text-blue-600 focus:outline-none"
-              >
-                {isMenuOpen ? (
-                  <X className="h-6 w-6" />
-                ) : (
-                  <Menu className="h-6 w-6" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Navigation */}
-          {isMenuOpen && (
-            <div className="md:hidden mt-4 pb-3 space-y-3">
-              <a
-                href="#features"
-                className="block text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Features
-              </a>
-              <a
-                href="#pricing"
-                className="block text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Pricing
-              </a>
-              <a
-                href="#testimonials"
-                className="block text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Testimonials
-              </a>
-              <a
-                href="#faq"
-                className="block text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                FAQ
-              </a>
-              <a
-                href="/login"
-                className="block text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                Login
-              </a>
-              <a
-                href="/signup"
-                className="block bg-blue-600 text-white px-4 py-2 rounded-lg text-center hover:bg-blue-700 transition-colors mt-4"
-              >
-                Get Started
-              </a>
-            </div>
-          )}
-        </div>
-      </nav>
-
+      <Header />
       {/* Adding spacing to account for fixed navbar */}
       <div className="pt-16"></div>
 
@@ -187,20 +62,7 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-            <div className="mt-12 md:mt-0 md:w-1/2">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200"
-              >
-                <img
-                  src="/api/placeholder/600/400"
-                  alt="ColdConnect Dashboard"
-                  className="w-full"
-                />
-              </motion.div>
-            </div>
+            <FramerDashboardShow />
           </div>
         </div>
       </section>
@@ -483,66 +345,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="py-20 bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold">Frequently Asked Questions</h2>
-            <p className="mt-4 text-xl text-gray-600">
-              Everything you need to know about ColdConnect
-            </p>
-          </div>
-
-          <div className="mt-12 space-y-4">
-            {[
-              {
-                question: "How does the 14-day free trial work?",
-                answer:
-                  "You can sign up for any plan and use all features for 14 days without being charged. No credit card required to start. Cancel anytime during the trial period.",
-              },
-              {
-                question: "Will my emails be marked as spam?",
-                answer:
-                  "ColdConnect includes built-in deliverability protection with email warm-up, spam testing, and best practices to ensure your emails reach the inbox.",
-              },
-              {
-                question: "Can I integrate with my existing CRM?",
-                answer:
-                  "Yes, ColdConnect integrates with popular CRMs including Salesforce, HubSpot, Pipedrive, and more. We also offer API access for custom integrations.",
-              },
-              {
-                question: "Do you provide email templates?",
-                answer:
-                  "Yes, all plans include access to our template library. Professional and Enterprise plans include our AI template generator for creating personalized messages.",
-              },
-              {
-                question: "What happens if I exceed my monthly email limit?",
-                answer:
-                  "You can purchase additional email credits as needed, or upgrade to a higher plan if you consistently need more capacity.",
-              },
-            ].map((faq, index) => (
-              <div
-                key={index}
-                className="border border-gray-200 rounded-lg bg-white"
-              >
-                <button
-                  className="flex justify-between items-center w-full px-6 py-4 text-left focus:outline-none"
-                  onClick={() => toggleAccordion(index)}
-                >
-                  <span className="font-medium">{faq.question}</span>
-                  <ChevronDown
-                    className={`h-5 w-5 text-gray-500 transition-transform ${
-                      activeAccordion === index ? "transform rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                {activeAccordion === index && (
-                  <div className="px-6 pb-4 text-gray-600">{faq.answer}</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <Faq />
 
       {/* CTA */}
       <section className="py-20 bg-blue-600 text-white">

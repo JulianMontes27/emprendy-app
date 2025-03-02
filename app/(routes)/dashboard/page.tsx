@@ -11,15 +11,10 @@ const DashboardHomePage = async () => {
     redirect("/api/auth/signin?callbackUrl=/dashboard");
   }
 
-  // If user role is "user", redirect to client page
-  if (user?.role === "user") {
-    redirect(`/cliente/${user.id}`);
-  }
-
   // For non-user roles (admin, etc.)
   return (
     <div className="flex flex-col gap-3 ">
-      <section className="w-full gap-3">{user?.role}</section>
+      <section className="w-full gap-3">{user?.id}</section>
     </div>
   );
 };

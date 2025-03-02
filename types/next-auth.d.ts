@@ -8,7 +8,7 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      role: string; // 👈 Add 'role' so TypeScript recognizes it
+      // role: string; // 👈 Add 'role' so TypeScript recognizes it
       name: string;
       email: string;
     };
