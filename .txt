@@ -1,0 +1,11 @@
+3. Propuesta de Valor
+Una aplicación web para cold emails en Latam podría ofrecer:
+
+Personalización Cultural: Modelos de lenguaje natural adaptados a expresiones y preferencias locales.
+
+Automatización Avanzada: Flujos basados en comportamiento del usuario, con activadores específicos para el mercado latinoamericano.
+
+Integración Multicanal: Conexión con WhatsApp, SMS y redes sociales para maximizar el alcance.
+
+Cumplimiento Normativo: Garantizar el cumplimiento de leyes locales sobre privacidad y spam.
+

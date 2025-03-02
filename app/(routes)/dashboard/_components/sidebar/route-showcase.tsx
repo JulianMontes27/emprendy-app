@@ -1,9 +1,8 @@
 "use client";
 
-import { RouteList } from "@/app/(routes)/dashboard/layout";
+import { RouteList } from "../../layout";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
 import { cn } from "@/lib/utils";
 
 interface RoutesShowcaseProps {

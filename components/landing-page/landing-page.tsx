@@ -1,4 +1,5 @@
 // app/page.jsx
+
 import { ArrowRight, Mail, Check, Zap, Shield, Star } from "lucide-react";
 import Header from "./header";
 import Faq from "./faq";
@@ -8,11 +9,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 text-gray-900">
       <Header />
-      {/* Adding spacing to account for fixed navbar */}
-      <div className="pt-16"></div>
 
       {/* Hero Section */}
-      <section className="py-16 md:py-32">
+      <section className="py-20 md:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 md:pr-8">

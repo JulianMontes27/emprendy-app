@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,12 +8,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 import { MenuIcon } from "lucide-react";
-
 import { cn } from "@/lib/utils";
-
-import type { RouteList } from "./navbar";
+import type { RouteList } from "../../layout";
 
 export const MobileNav = ({
   routes,
