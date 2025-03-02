@@ -44,7 +44,7 @@ const Header = () => {
               FAQ
             </a>
             <Link href="/dashboard" className="w-full">
-              <Button className="rounded-md bg-green-700 w-full">
+              <Button className="bg-blue-600 text-white font-medium rounded-lg px-8 py-4 text-center hover:bg-blue-700 transition-all shadow-md hover:shadow-lg">
                 Ingresar
               </Button>
             </Link>
@@ -67,7 +67,7 @@ const Header = () => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 pb-3 space-y-3">
+          <div className="md:hidden mt-4 pb-3 space-y-3 flex flex-col gap-2">
             <a
               href="#features"
               className="block text-gray-600 hover:text-blue-600 transition-colors"
@@ -93,11 +93,10 @@ const Header = () => {
               FAQ
             </a>
             <Link href="/dashboard" className="w-full">
-              <Button className="rounded-md bg-green-700 w-full">
+              <Button className="bg-blue-600 text-white font-medium rounded-lg px-8 py-4 text-center hover:bg-blue-700 transition-all shadow-md hover:shadow-lg w-full">
                 Ingresar
               </Button>
             </Link>
-           
           </div>
         )}
       </div>
