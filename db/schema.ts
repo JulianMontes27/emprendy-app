@@ -88,6 +88,9 @@ export const contacts = pgTable("contacts", {
   customFields: json("custom_fields").default({}),
   isVerified: boolean("is_verified").default(false),
   status: text("status").default("active"),
+  userId: text("user_id") // Add this field
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }), // Reference to users table
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
@@ -284,6 +287,7 @@ export const contactSequences = pgTable("contact_sequences", {
 
 // Relationships
 export const usersRelations = relations(users, ({ many }) => ({
+  contacts: many(contacts),
   lists: many(lists),
   emailTemplates: many(emailTemplates),
   campaigns: many(campaigns),
@@ -292,7 +296,11 @@ export const usersRelations = relations(users, ({ many }) => ({
 }));
 
 // Update contactsRelations to include contactLists
-export const contactsRelations = relations(contacts, ({ many }) => ({
+export const contactsRelations = relations(contacts, ({ one, many }) => ({
+  user: one(users, {
+    fields: [contacts.userId],
+    references: [users.id],
+  }),
   contactLists: many(contactLists),
   emailMessages: many(emailMessages),
   contactSequences: many(contactSequences),

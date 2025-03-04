@@ -13,10 +13,7 @@ export function SignInBtn({
     <form
       action={async () => {
         "use server";
-
-        await signIn("google", {
-          redirectTo: "/dashboard",
-        });
+        await signIn();
       }}
     >
       <Button

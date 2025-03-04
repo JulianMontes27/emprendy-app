@@ -2,11 +2,11 @@ import { db } from "@/db";
 import { CheckCircle, Gift, ArrowLeft, Shield, Star } from "lucide-react";
 import { formatPriceToCOP } from "@/utils/price-formatter";
 import { eq } from "drizzle-orm";
-import { memberships, subscriptions } from "@/db/schema";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import getSession from "@/lib/get-session";
 import MPPagar from "@/components/payments/mp-pagar";
+import { memberships, subscriptions } from "@/db/schema";
 import { Membership } from "@/types/types";
 
 export const metadata = {

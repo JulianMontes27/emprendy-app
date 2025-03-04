@@ -1,4 +1,5 @@
 // app/dashboard/page.tsx
+
 import {
   Card,
   CardContent,
@@ -13,11 +14,16 @@ import { Progress } from "@/components/ui/progress";
 import { Users, Clock, Plus, FileText, BarChart3 } from "lucide-react";
 import { DashboardMetrics } from "./_components/content";
 import { PerformanceCard } from "./_components/performance-card";
+import getSession from "@/lib/get-session";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getSession();
+  const user = session?.user;
+  if (!user || user === undefined) return null;
+
   return (
     <div>
-      <DashboardMetrics />
+      <DashboardMetrics user={user} />
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="lg:col-span-4">

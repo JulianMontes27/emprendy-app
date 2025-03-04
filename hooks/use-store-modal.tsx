@@ -1,4 +1,3 @@
-import { db } from "@/db";
 import { create } from "zustand";
 
 export type ContactForm = {
@@ -6,10 +5,11 @@ export type ContactForm = {
   name: string;
 };
 
-export type ModalType = "contact";
+export type ModalType = "contact" | "import-contacts";
 
 interface ModalData {
   contactForm?: ContactForm;
+  import_options?: "excel" | "google_sheets" | "manual";
 }
 
 interface ModalStore {

@@ -1,70 +1,64 @@
+import { RouteList } from "@/types/types";
 import Sidebar from "./_components/sidebar/dashboard-sidebar";
-import { User as UserIcon, House, ChefHat, Files, Contact } from "lucide-react";
 import { MobileSidebar } from "./_components/sidebar/mobile-sidebar";
-import getSession from "@/lib/get-session";
-import { notFound } from "next/navigation";
+import { User as UserIcon, House, Files, Contact } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+  params: {
+    userId: string;
+  };
 }
-interface Route {
-  href: string;
-  title: string;
-  icon: React.ReactNode;
-}
-export type RouteList = Route[];
 
 export const routes: RouteList = [
   {
     href: `/dashboard`,
     title: "Principal",
-    icon: <House />,
-  },
-  {
-    href: `/dashboard/upload`,
-    title: "Subir",
-    icon: <Files />,
+    icon: <House className="h-5 w-5" />,
   },
   {
     href: `/dashboard/contacts`,
     title: "Contactos",
-    icon: <Contact />,
+    icon: <Contact className="h-5 w-5" />,
   },
-
   {
     href: `/dashboard/account`,
     title: "Cuenta",
-    icon: <UserIcon />,
+    icon: <UserIcon className="h-5 w-5" />,
   },
 ];
 
-export const DashboardLayout: React.FC<DashboardLayoutProps> = async ({
-  children,
-}) => {
-  const session = await getSession();
-  const user = session?.user;
-  if (!user) return notFound();
-
+export const Layout: React.FC<DashboardLayoutProps> = async ({ children }) => {
   return (
-    <main className="h-full w-full flex flex-row bg-white dark:bg-slate-950">
-      {/* sidebar desktop */}
-      <section className="h-full hidden lg:flex flex-col overflow-x-hidden z-999 w-[75px]">
-        <Sidebar routes={routes} user={user} />
-      </section>
-      <section className="flex flex-col w-full h-full lg:ml-[75px] relative">
-        {/* mobile-version */}
-        <div className="lg:hidden flex flex-row p-2 w-full fixed top-0 z-998 items-center bg-white h-10 border">
-          <div className="flex flex-row gap-4 ">
-            <MobileSidebar routes={routes} user={user} />
-            <h1>LOGO</h1>
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Desktop Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden  bg-white/70 backdrop-blur-lg dark:bg-gray-800/70 lg:block">
+        <Sidebar routes={routes} />
+      </aside>
+
+      {/* Mobile Header */}
+      <header className="fixed top-0 z-20 w-full bg-white/70 backdrop-blur-lg dark:bg-gray-800/70 lg:hidden">
+        <div className="flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-4">
+            <MobileSidebar routes={routes} />
+            <span className="text-xl font-bold text-gray-900 dark:text-white">
+              LOGO
+            </span>
           </div>
-          <div className="flex-1 flex justify-end">Data</div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              DATA
+            </span>
+          </div>
         </div>
-        {/* children of layout */}
-        <div className="h-full w-full p-3 lg:mt-0 mt-12">{children}</div>
-      </section>
+      </header>
+
+      {/* Main Content */}
+      <div className="lg:ml-[100px]">
+        <div className="p-6 lg:mt-0 mt-16">{children}</div>
+      </div>
     </main>
   );
 };
 
-export default DashboardLayout;
+export default Layout;

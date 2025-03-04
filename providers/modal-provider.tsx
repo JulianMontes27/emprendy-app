@@ -1,5 +1,6 @@
 "use client";
 
+import ImportContactsModal from "@/components/modals/dashboard/contacts/import-contacts";
 import ContactUsFormProvider from "@/components/modals/landing/contact_us";
 import { useState, useEffect } from "react";
 
@@ -15,6 +16,7 @@ const ModalProvider = () => {
   return (
     <div className="">
       <ContactUsFormProvider />
+      <ImportContactsModal />
     </div>
   );
 };
