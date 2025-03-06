@@ -1,7 +1,7 @@
 import { RouteList } from "@/types/types";
 import Sidebar from "./_components/sidebar/dashboard-sidebar";
 import { MobileSidebar } from "./_components/sidebar/mobile-sidebar";
-import { User as UserIcon, House, Files, Contact } from "lucide-react";
+import { User as UserIcon, House, Contact, MailPlus } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -20,6 +20,11 @@ export const routes: RouteList = [
     href: `/dashboard/contacts`,
     title: "Contactos",
     icon: <Contact className="h-5 w-5" />,
+  },
+  {
+    href: `/dashboard/marketing`,
+    title: "Campañas",
+    icon: <MailPlus className="h-5 w-5" />,
   },
   {
     href: `/dashboard/account`,

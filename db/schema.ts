@@ -20,6 +20,15 @@ export const users = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
 });
+// Relationships
+export const usersRelations = relations(users, ({ many }) => ({
+  contacts: many(contacts),
+  lists: many(lists),
+  emailTemplates: many(emailTemplates),
+  campaigns: many(campaigns),
+  sequences: many(sequences),
+  apiKeys: many(apiKeys),
+}));
 
 // Next Auth Tables
 export const accounts = pgTable(
@@ -45,7 +54,6 @@ export const accounts = pgTable(
     }),
   })
 );
-
 export const sessions = pgTable("session", {
   sessionToken: text("sessionToken").notNull().primaryKey(),
   userId: text("userId")
@@ -53,7 +61,6 @@ export const sessions = pgTable("session", {
     .references(() => users.id, { onDelete: "cascade" }),
   expires: timestamp("expires", { mode: "date" }).notNull(),
 });
-
 export const verificationTokens = pgTable(
   "verificationToken",
   {
@@ -88,40 +95,80 @@ export const contacts = pgTable("contacts", {
   customFields: json("custom_fields").default({}),
   isVerified: boolean("is_verified").default(false),
   status: text("status").default("active"),
-  userId: text("user_id") // Add this field
+
+  userId: text("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }), // Reference to users table
+    .references(() => users.id, { onDelete: "cascade" }),
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+export const contactsRelations = relations(contacts, ({ one, many }) => ({
+  user: one(users, {
+    fields: [contacts.userId],
+    references: [users.id],
+  }),
+
+  contactsToLists: many(contactsToLists), // many-to-many
+
+  emailMessages: many(emailMessages),
+  contactSequences: many(contactSequences),
+}));
 
 // Lists (Segments of contacts)
 export const lists = pgTable("lists", {
   id: uuid("id").defaultRandom().primaryKey(),
+
   name: text("name").notNull(),
   description: text("description"),
+
   createdById: text("created_by_id")
     .notNull()
     .references(() => users.id),
+
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-// Contact-List relationships (many-to-many)
-export const contactLists = pgTable(
-  "contact_lists",
+export const listsRelations = relations(lists, ({ many, one }) => ({
+  campaigns: many(campaigns),
+  createdBy: one(users, {
+    fields: [lists.createdById],
+    references: [users.id],
+  }),
+
+  contactsToLists: many(contactsToLists), // many-to-many
+}));
+
+export const contactsToLists = pgTable(
+  "contacts_to_lists",
   {
-    contactId: uuid("contact_id")
+    contactId: uuid("user_id")
       .notNull()
-      .references(() => contacts.id, { onDelete: "cascade" }),
+      .references(() => contacts.id),
     listId: uuid("list_id")
       .notNull()
-      .references(() => lists.id, { onDelete: "cascade" }),
-    addedAt: timestamp("added_at", { withTimezone: true }).defaultNow(),
+      .references(() => lists.id),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.contactId, t.listId] }),
+  (t) => [
+    primaryKey({
+      columns: [t.contactId, t.listId],
+    }),
+  ]
+);
+
+export const contactsToListsRelations = relations(
+  contactsToLists,
+  ({ one }) => ({
+    contact: one(contacts, {
+      fields: [contactsToLists.contactId],
+      references: [contacts.id],
+    }),
+    list: one(lists, {
+      fields: [contactsToLists.listId],
+      references: [lists.id],
+    }),
   })
 );
 
@@ -145,15 +192,18 @@ export const emailTemplates = pgTable("email_templates", {
 // Campaigns
 export const campaigns = pgTable("campaigns", {
   id: uuid("id").defaultRandom().primaryKey(),
+
   name: text("name").notNull(),
   description: text("description"),
   createdById: text("created_by_id")
     .notNull()
     .references(() => users.id),
+
   status: text("status").default("draft"),
   templateId: uuid("template_id")
     .notNull()
     .references(() => emailTemplates.id),
+  listId: uuid("list_id").references(() => lists.id), // Simplified list association
   sendFromEmail: text("send_from_email").notNull(),
   sendFromName: text("send_from_name").notNull(),
   replyToEmail: text("reply_to_email"),
@@ -166,23 +216,6 @@ export const campaigns = pgTable("campaigns", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
-
-// Campaign-List relationships (many-to-many)
-export const campaignLists = pgTable(
-  "campaign_lists",
-  {
-    campaignId: uuid("campaign_id")
-      .notNull()
-      .references(() => campaigns.id, { onDelete: "cascade" }),
-    listId: uuid("list_id")
-      .notNull()
-      .references(() => lists.id, { onDelete: "cascade" }),
-    addedAt: timestamp("added_at", { withTimezone: true }).defaultNow(),
-  },
-  (t) => ({
-    pk: primaryKey(t.campaignId, t.listId),
-  })
-);
 
 // Email Messages (Individual emails sent)
 export const emailMessages = pgTable("email_messages", {
@@ -208,7 +241,6 @@ export const emailMessages = pgTable("email_messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
-
 // Email Tracking
 export const emailOpens = pgTable("email_opens", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -221,7 +253,6 @@ export const emailOpens = pgTable("email_opens", {
   location: text("location"),
   device: text("device"),
 });
-
 export const emailClicks = pgTable("email_clicks", {
   id: uuid("id").defaultRandom().primaryKey(),
   messageId: uuid("message_id")
@@ -248,7 +279,6 @@ export const sequences = pgTable("sequences", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
-
 // Sequence Steps
 export const sequenceSteps = pgTable("sequence_steps", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -266,7 +296,6 @@ export const sequenceSteps = pgTable("sequence_steps", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
-
 // Contact Sequence Status
 export const contactSequences = pgTable("contact_sequences", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -285,59 +314,19 @@ export const contactSequences = pgTable("contact_sequences", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-// Relationships
-export const usersRelations = relations(users, ({ many }) => ({
-  contacts: many(contacts),
-  lists: many(lists),
-  emailTemplates: many(emailTemplates),
-  campaigns: many(campaigns),
-  sequences: many(sequences),
-  apiKeys: many(apiKeys),
-}));
-
-// Update contactsRelations to include contactLists
-export const contactsRelations = relations(contacts, ({ one, many }) => ({
-  user: one(users, {
-    fields: [contacts.userId],
-    references: [users.id],
-  }),
-  contactLists: many(contactLists),
-  emailMessages: many(emailMessages),
-  contactSequences: many(contactSequences),
-}));
-
-// Update listsRelations to include contactLists
-export const listsRelations = relations(lists, ({ many, one }) => ({
-  contactLists: many(contactLists),
-  campaignLists: many(campaignLists),
-  createdBy: one(users, {
-    fields: [lists.createdById],
-    references: [users.id],
-  }),
-}));
-
-// Relationships for contactLists
-export const contactListsRelations = relations(contactLists, ({ one }) => ({
-  contact: one(contacts, {
-    fields: [contactLists.contactId],
-    references: [contacts.id],
-  }),
-  list: one(lists, {
-    fields: [contactLists.listId],
-    references: [lists.id],
-  }),
-}));
-
-export const campaignListsRelations = relations(campaignLists, ({ one }) => ({
-  campaign: one(campaigns, {
-    fields: [campaignLists.campaignId],
-    references: [campaigns.id],
-  }),
-  list: one(lists, {
-    fields: [campaignLists.listId],
-    references: [lists.id],
-  }),
-}));
+// API Keys (For integration with external services)
+export const apiKeys = pgTable("api_keys", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  key: text("key").notNull().unique(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
 
 export const emailTemplatesRelations = relations(
   emailTemplates,
@@ -356,7 +345,10 @@ export const campaignsRelations = relations(campaigns, ({ many, one }) => ({
     fields: [campaigns.templateId],
     references: [emailTemplates.id],
   }),
-  campaignLists: many(campaignLists),
+  list: one(lists, {
+    fields: [campaigns.listId],
+    references: [lists.id],
+  }),
   emailMessages: many(emailMessages),
   createdBy: one(users, {
     fields: [campaigns.createdById],
@@ -417,20 +409,6 @@ export const contactSequencesRelations = relations(
     }),
   })
 );
-
-// API Keys (For integration with external services)
-export const apiKeys = pgTable("api_keys", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  key: text("key").notNull().unique(),
-  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
 
 export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
   user: one(users, {

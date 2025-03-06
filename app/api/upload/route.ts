@@ -16,64 +16,21 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+    const mappedContactsJson = formData.get("mappedContacts") as string | null;
     const listId = formData.get("listId") as string | null;
 
-    if (!file) {
+    if (!file || !mappedContactsJson) {
       return new NextResponse("No file uploaded.", { status: 400 });
     }
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Parse Excel file
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const rawContacts = XLSX.utils.sheet_to_json(worksheet) as any[];
-
-    // Basic validation
-    if (!rawContacts || rawContacts.length === 0) {
-      return new NextResponse("No contacts found in the file.", {
+    // Before processing the file
+    if (file.size > 10 * 1024 * 1024) {
+      return new NextResponse("File too large. Maximum 10MB allowed.", {
         status: 400,
+        headers: { "Content-Type": "application/json" },
       });
     }
-
-    // Mapping the Excel columns to our database schema
-    const mappedContacts = rawContacts.map((row) => {
-      // Default mapping - can be customized based on the Excel file structure
-      return {
-        firstName: row.firstName || row.first_name || row["First Name"] || null,
-        lastName: row.lastName || row.last_name || row["Last Name"] || null,
-        email: row.email || row.Email || row["Email Address"] || "",
-        companyName:
-          row.companyName ||
-          row.company ||
-          row.Company ||
-          row["Company Name"] ||
-          null,
-        jobTitle:
-          row.jobTitle || row.title || row.Title || row["Job Title"] || null,
-        phone: row.phone || row.Phone || row["Phone Number"] || null,
-        linkedinUrl:
-          row.linkedinUrl ||
-          row.linkedin ||
-          row.LinkedIn ||
-          row["LinkedIn URL"] ||
-          null,
-        website: row.website || row.Website || null,
-        industry: row.industry || row.Industry || null,
-        companySize: row.companySize || row.size || row["Company Size"] || null,
-        location: row.location || row.Location || null,
-        source: "excel_import",
-        notes: row.notes || row.Notes || null,
-        tags: row.tags
-          ? typeof row.tags === "string"
-            ? row.tags.split(",")
-            : row.tags
-          : [],
-        status: "active",
-      };
-    });
+    // Parse mapped contacts
+    const mappedContacts = JSON.parse(mappedContactsJson);
 
     // Validate crucial data
     const validationErrors = validateContacts(mappedContacts);
@@ -84,23 +41,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Insert contacts into database
+    // Rest of the import logic remains the same
     const insertedContacts = await db.transaction(async (tx) => {
       const inserted = [];
 
       for (const contact of mappedContacts) {
-        // Check for duplicate email
+        // Existing duplicate and insert logic
         const existing = await tx.query.contacts.findFirst({
           where: (c, { eq, and }) =>
             and(eq(c.email, contact.email), eq(c.userId, user.id)),
         });
 
         if (!existing) {
-          // Insert new contact
-          const result = await tx.insert(contacts).values(contact).returning();
+          const result = await tx
+            .insert(contacts)
+            .values({
+              ...contact,
+              source: "excel_import",
+              status: "active",
+              userId: user.id,
+            })
+            .returning();
+
           inserted.push(result[0]);
 
-          // If listId is provided, add contact to the list
+          // List association logic
           if (listId) {
             await tx.insert(contactLists).values({
               contactId: result[0].id,
@@ -114,13 +79,15 @@ export async function POST(req: NextRequest) {
       return inserted;
     });
 
+    console.log(contacts);
+
     return NextResponse.json(
       {
         message: "Contacts imported successfully",
         totalProcessed: mappedContacts.length,
         inserted: insertedContacts.length,
         skipped: mappedContacts.length - insertedContacts.length,
-        contacts: insertedContacts, // Return all inserted contacts
+        contacts: insertedContacts,
       },
       {
         status: 200,
@@ -128,11 +95,30 @@ export async function POST(req: NextRequest) {
       }
     );
   } catch (error) {
+    // Modify the catch block
     console.error("Error processing file:", error);
+
+    // Different error responses based on error type
+    if (error instanceof Error) {
+      return new NextResponse(
+        JSON.stringify({
+          error: "Import failed",
+          details: error.message,
+          // Optionally include stack trace in development
+          ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
+        }),
+        {
+          status: error.name === "ValidationError" ? 400 : 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Fallback for unexpected errors
     return new NextResponse(
       JSON.stringify({
-        error: "Internal server error",
-        details: error.message,
+        error: "Unexpected error occurred during import",
+        details: String(error),
       }),
       {
         status: 500,

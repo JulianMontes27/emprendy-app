@@ -1,6 +1,8 @@
 "use client";
 
+import { CreateListModal } from "@/components/modals/dashboard/contacts/create-contact-list";
 import ImportContactsModal from "@/components/modals/dashboard/contacts/import-contacts";
+import CreateCampaignModal from "@/components/modals/dashboard/marketing/create";
 import ContactUsFormProvider from "@/components/modals/landing/contact_us";
 import { useState, useEffect } from "react";
 
@@ -14,10 +16,12 @@ const ModalProvider = () => {
     return null;
   }
   return (
-    <div className="">
+    <>
       <ContactUsFormProvider />
       <ImportContactsModal />
-    </div>
+      <CreateCampaignModal />
+      <CreateListModal />
+    </>
   );
 };
 

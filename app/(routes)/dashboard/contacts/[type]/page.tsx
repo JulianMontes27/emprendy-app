@@ -1,5 +1,6 @@
 "use client";
 
+import * as XLSX from "xlsx";
 import axios from "axios";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { ColumnMappingModal } from "../../_components/contacts/column-mapping-modal";
+import { unknown } from "zod";
 
 interface ImportPageProps {
   params: {
@@ -46,80 +49,24 @@ interface ImportPageProps {
 const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
   const [importType, setImportType] = useState(params.type || "excel");
   const [file, setFile] = useState<File | null>(null);
+
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
+  const [excelColumns, setExcelColumns] = useState<string[]>([]);
+  const [rawData, setRawData] = useState<any[]>([]);
+  const [showMapping, setShowMapping] = useState(false);
+
   const router = useRouter();
 
   // Handle file selection
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      setFile(selectedFile);
-      simulateUpload();
-    }
-  };
-
-  // Handle import type change
-  const handleImportTypeChange = (value: string) => {
-    setImportType(value);
-    router.push(`/dashboard/contacts/${value}`);
-  };
-
-  // Handle drag and drop events
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) {
-      setFile(droppedFile);
-      simulateUpload();
-    }
-  };
-
-  // Simulate file upload progress
-  const simulateUpload = () => {
-    setIsUploading(true);
-    setUploadProgress(0);
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 300);
-  };
-
-  // Remove selected file
-  const removeFile = () => {
-    setFile(null);
-    setUploadProgress(0);
-    setIsUploading(false);
-  };
-
-  // Get import type icon
-  const getImportTypeIcon = () => {
-    switch (importType) {
-      case "excel":
-        return <FileSpreadsheet className="h-5 w-5 text-emerald-500" />;
-      case "google_sheets":
-        return <FileSpreadsheet className="h-5 w-5 text-blue-500" />;
-      default:
-        return <FileText className="h-5 w-5 text-gray-500" />;
+      await processFile(selectedFile);
     }
   };
 
@@ -132,6 +79,85 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
         return ".csv";
       default:
         return "";
+    }
+  };
+
+  // Handle drag and drop
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      await processFile(droppedFile);
+    }
+  };
+
+  // Process uploaded file
+  const processFile = async (file: File) => {
+    setFile(file);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      // Returns an array of arrays, where each inner array represents a row in the sheet
+      const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      // The first row of the raw data (rawData[0]) contains the column headers
+      const columns = rawData[0] as string[];
+
+      // For each row after the header row (rawData.slice(1)), map the values to their corresponding column headers
+      const data = rawData.slice(1).map((row) => {
+        const rowData: Record<string, any> = {};
+        columns.forEach((col, index) => {
+          rowData[col] = (row as any[])[index];
+        });
+        return rowData;
+      });
+
+      // Filter out rows where all values are empty or N/A
+      const filteredData = data.filter((row) => {
+        return Object.values(row).some(
+          (value) => value !== undefined && value !== null && value !== ""
+        );
+      });
+
+      setExcelColumns(columns);
+      setRawData(filteredData); // Use filteredData instead of raw data
+    } catch (error) {
+      console.error("Error processing file:", error);
+      alert(
+        "Failed to process the file. Please ensure it is a valid Excel or CSV file."
+      );
+    }
+  };
+
+  // Handle import type change
+  const handleImportTypeChange = (value: string) => {
+    setImportType(value);
+    router.push(`/dashboard/contacts/${value}`);
+  };
+
+  // Remove selected file
+  const removeFile = () => {
+    setFile(null);
+    setUploadProgress(0);
+    setIsUploading(false);
+    setExcelColumns([]);
+    setRawData([]);
+  };
+
+  // Get import type icon
+  const getImportTypeIcon = () => {
+    switch (importType) {
+      case "excel":
+        return <FileSpreadsheet className="h-5 w-5 text-emerald-500" />;
+      case "google_sheets":
+        return <FileSpreadsheet className="h-5 w-5 text-blue-500" />;
+      default:
+        return <FileText className="h-5 w-5 text-gray-500" />;
     }
   };
 
@@ -149,20 +175,25 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
     }
   };
 
-  // Handle form submission
-  const handleSubmit = async () => {
-    if (!file) {
-      alert("Por favor, selecciona un archivo antes de continuar.");
-      return;
-    }
+  // Handle mapping completion
+  const handleMappingComplete = async (mapping: Record<string, string>) => {
+    const processedContacts = rawData.map((row) => {
+      const contact: Record<string, any> = {};
+      Object.entries(mapping).forEach(([schemaField, excelColumn]) => {
+        if (excelColumn) {
+          contact[schemaField] = row[excelColumn];
+        }
+      });
+      return contact;
+    });
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", file!);
+    formData.append("mappedContacts", JSON.stringify(processedContacts));
 
     try {
       setIsUploading(true);
       setUploadProgress(0);
-
       const response = await axios.post("/api/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -184,6 +215,8 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
       setIsUploading(false);
     }
   };
+
+  console.log(rawData);
 
   return (
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -274,8 +307,14 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
                   className={`border-2 border-dashed rounded-lg p-8 transition-colors ${
                     isDragging ? "border-primary bg-primary/5" : "border-border"
                   }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                  }}
                   onDrop={handleDrop}
                 >
                   <div className="flex flex-col items-center justify-center text-center">
@@ -328,6 +367,50 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
                     </Button>
                   </div>
 
+                  {/* Table Preview */}
+                  {excelColumns.length > 0 && rawData.length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="text-xl font-semibold mb-4">
+                        Vista previa de los datos
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full border">
+                          <thead>
+                            <tr className="bg-gray-100">
+                              {excelColumns.map((column, index) => (
+                                <th
+                                  key={index}
+                                  className="border p-2 text-left"
+                                >
+                                  {column}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rawData.slice(0, 5).map((row, rowIndex) => (
+                              <tr
+                                key={rowIndex}
+                                className={`border ${
+                                  rowIndex % 2 === 0 ? "bg-gray-50" : ""
+                                }`}
+                              >
+                                {excelColumns.map((column, colIndex) => (
+                                  <td
+                                    key={colIndex}
+                                    className="border p-2 text-left"
+                                  >
+                                    {row[column] || "N/A"}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
                   {isUploading && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -352,9 +435,11 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
                 </div>
               )}
             </CardContent>
-            <CardFooter className="flex justify-between border-t pt-6">
-              <Button variant="outline">Cancelar</Button>
-              <Button onClick={handleSubmit} disabled={isUploading}>
+            <CardFooter className="flex justify-end border-t pt-6">
+              <Button
+                onClick={() => setShowMapping(true)}
+                disabled={!file || isUploading}
+              >
                 {isUploading ? "Importando..." : "Continuar"}
               </Button>
             </CardFooter>
@@ -380,15 +465,26 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
                 clic en continuar).
               </p>
             </CardContent>
-            <CardFooter className="flex justify-between border-t pt-6">
-              <Button variant="outline">Cancelar</Button>
-              <Button onClick={handleSubmit} disabled={isUploading}>
+            <CardFooter className="flex justify-end border-t pt-6 w-full">
+              <Button
+                onClick={() => setShowMapping(true)}
+                disabled={isUploading}
+              >
                 {isUploading ? "Importando..." : "Continuar"}
               </Button>
             </CardFooter>
           </Card>
         )}
       </div>
+
+      {/* Column Mapping Modal */}
+      {showMapping && (
+        <ColumnMappingModal
+          excelColumns={excelColumns}
+          rawData={rawData}
+          onMappingComplete={handleMappingComplete}
+        />
+      )}
     </div>
   );
 };

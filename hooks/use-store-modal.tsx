@@ -5,11 +5,16 @@ export type ContactForm = {
   name: string;
 };
 
-export type ModalType = "contact" | "import-contacts";
+export type ModalType =
+  | "contact"
+  | "import-contacts"
+  | "create-campaign"
+  | "create-contact-list";
 
 interface ModalData {
   contactForm?: ContactForm;
   import_options?: "excel" | "google_sheets" | "manual";
+  contacts?: any;
 }
 
 interface ModalStore {
