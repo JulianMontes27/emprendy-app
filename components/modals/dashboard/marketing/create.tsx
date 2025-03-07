@@ -60,7 +60,7 @@ export default function CreateCampaignModal() {
   const { isOpen, onClose, modalType, data } = useModalStore();
   const router = useRouter();
 
-  console.log(data);
+  console.log(data.contactLists);
 
   const form = useForm<CreateCampaignModalType>({
     resolver: zodResolver(formSchema),

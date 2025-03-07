@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const CreateContactListBtn = ({ contacts }: { contacts: any }) => {
   const { onOpen } = useModalStore();
+
   return (
     <Button
       onClick={() => onOpen("create-contact-list", { contacts })}

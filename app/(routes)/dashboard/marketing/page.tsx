@@ -1,58 +1,46 @@
+import { db } from "@/db";
 import MarketingPageClient from "./_components/client";
+import { campaigns, lists, emailTemplates } from "@/db/schema";
+import getSession from "@/lib/get-session";
+import { notFound } from "next/navigation";
+import { eq } from "drizzle-orm";
 
-const MarketingPage = () => {
-  // Mock data for campaigns
-  const campaigns = [
-    {
-      id: 1,
-      name: "Q4 Outreach",
-      status: "Scheduled",
-      sent: 120,
-      opens: 80,
-      replies: 12,
-      progress: 65,
-    },
-    {
-      id: 2,
-      name: "New Client Follow-Up",
-      status: "Draft",
-      sent: 0,
-      opens: 0,
-      replies: 0,
-      progress: 0,
-    },
-    {
-      id: 3,
-      name: "Product Launch",
-      status: "Sent",
-      sent: 500,
-      opens: 350,
-      replies: 45,
-      progress: 70,
-    },
-  ];
-  // Mock data for templates
-  const templates = [
-    {
-      id: 1,
-      name: "Product Launch",
-      description: "A template for announcing new products.",
-    },
-    {
-      id: 2,
-      name: "Follow-Up",
-      description: "A template for following up with leads.",
-    },
-    {
-      id: 3,
-      name: "Networking",
-      description: "A template for networking and introductions.",
-    },
-  ];
+const MarketingPage = async () => {
+  const session = await getSession();
+  const user = session?.user;
+
+  // Redirect if the user is not logged in
+  if (!user || !user.id) return notFound();
+
+  // Use a transaction to fetch all data
+  const [campaignList, listList, templates] = await db.transaction(
+    async (tx) => {
+      const campaignList = await tx
+        .select()
+        .from(campaigns)
+        .where(eq(campaigns.createdById, user.id!));
+
+      const listList = await tx
+        .select()
+        .from(lists)
+        .where(eq(lists.createdById, user.id!));
+
+      const templates = await tx
+        .select()
+        .from(emailTemplates)
+        .where(eq(emailTemplates.createdById, user.id!));
+
+      return [campaignList, listList, templates];
+    }
+  );
 
   return (
     <div className="p-6 space-y-6">
-      <MarketingPageClient templates={templates} campaigns={campaigns} />
+      <MarketingPageClient
+        templates={templates}
+        campaigns={campaignList}
+        contactLists={listList}
+      />
     </div>
   );
 };

@@ -2,8 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Search, Filter, BarChart, Mail, Users } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Plus, Users, Mail } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -13,18 +12,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import useModalStore from "@/hooks/use-store-modal";
-import { Campaign } from "@/types/types";
+import { Campaign, List, Template } from "@/types/types";
 
 interface MarketingPageClientProps {
-  campaigns?: any[];
-  templates?: any;
+  campaigns: Campaign[];
+  templates: Template[];
+  contactLists: List[];
 }
 
 const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
   campaigns,
   templates,
+  contactLists,
 }) => {
   const { onOpen } = useModalStore();
 
@@ -33,106 +33,109 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
       {/* Page Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Cold Email Marketing</h1>
-        <button
-          onClick={() => onOpen("create-campaign")}
-          className="bg-blue-400 p-2 flex flex-row  justify-center items-center text-white rounded-md hover:bg-blue-300 transition-all"
-        >
-          <Plus className="mr-2 h-4 w-4 " />
-          Crear campaña
-        </button>
+        <Button onClick={() => onOpen("create-campaign", { contactLists })}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create Campaign
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Campañas</CardTitle>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar campañas..."
-                  className="pl-8 w-[200px]"
-                />
-              </div>
-              <Button variant="outline">
-                <Filter className="mr-2 h-4 w-4" />
-                Filtrar
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Mandados</TableHead>
-                <TableHead>Abiertos</TableHead>
-                <TableHead>Respuestas</TableHead>
-                <TableHead>Progreso</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {campaigns?.map((campaign) => (
-                <TableRow key={campaign.id}>
-                  <TableCell className="font-medium">{campaign.name}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        campaign.status === "Scheduled"
-                          ? "secondary"
-                          : campaign.status === "Sent"
-                          ? "default"
-                          : "outline"
-                      }
-                    >
-                      {campaign.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{campaign.sent}</TableCell>
-                  <TableCell>{campaign.opens}</TableCell>
-                  <TableCell>{campaign.replies}</TableCell>
-                  <TableCell>
-                    <Progress value={campaign.progress} className="h-2" />
-                  </TableCell>
+      {/* Campaigns Section */}
+      {campaigns.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaigns</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Sent</TableHead>
+                  <TableHead>Opens</TableHead>
+                  <TableHead>Replies</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {campaigns.map((campaign) => (
+                  <TableRow key={campaign.id}>
+                    <TableCell className="font-medium">
+                      {campaign.name}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          campaign.status === "Scheduled"
+                            ? "secondary"
+                            : campaign.status === "Sent"
+                            ? "default"
+                            : "outline"
+                        }
+                      >
+                        {campaign.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{campaign.sent}</TableCell>
+                    <TableCell>{campaign.opens}</TableCell>
+                    <TableCell>{campaign.replies}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaigns</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              No campaigns found. Create one to get started.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Templates Section */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Templates</CardTitle>
-            <Button variant="outline">
+            <Button onClick={() => onOpen("create-template")}>
               <Plus className="mr-2 h-4 w-4" />
               Create Template
             </Button>
           </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {templates.map((template: any) => (
-            <div
-              key={template.id}
-              className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer"
-            >
-              <h3 className="font-semibold">{template.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                {template.description}
-              </p>
-            </div>
-          ))}
+          {templates.length > 0 ? (
+            templates.map((template) => (
+              <div
+                key={template.id}
+                className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer"
+                onClick={() => onOpen("edit-template", { template })}
+              >
+                <h3 className="font-semibold">{template.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {template.description}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No templates found. Create one to get started.
+            </p>
+          )}
         </CardContent>
       </Card>
+
       {/* Contact Management Section */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Contact Lists</CardTitle>
-            <Button variant="outline">
+            <Button onClick={() => onOpen("import-contacts")}>
               <Users className="mr-2 h-4 w-4" />
               Import Contacts
             </Button>
@@ -148,23 +151,29 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">Prospects</TableCell>
-                <TableCell>1,200</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="mr-2">
-                    Follow-Up
-                  </Badge>
-                  <Badge variant="outline">Q4 Outreach</Badge>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Clients</TableCell>
-                <TableCell>500</TableCell>
-                <TableCell>
-                  <Badge variant="outline">VIP</Badge>
-                </TableCell>
-              </TableRow>
+              {contactLists.length > 0 ? (
+                contactLists.map((list) => (
+                  <TableRow key={list.id}>
+                    <TableCell className="font-medium">{list.name}</TableCell>
+                    <TableCell>{list.contactCount}</TableCell>
+                    <TableCell>
+                      {list.tags.map((tag: any) => (
+                        <Badge key={tag} variant="outline" className="mr-2">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No contact lists found. Import contacts to get started.
+                    </p>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

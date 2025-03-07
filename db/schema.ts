@@ -10,7 +10,6 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
 import { relations } from "drizzle-orm";
-
 // Users Table (Admin/Marketing Users)
 export const users = pgTable("user", {
   id: text("id").notNull().primaryKey(),
@@ -29,7 +28,6 @@ export const usersRelations = relations(users, ({ many }) => ({
   sequences: many(sequences),
   apiKeys: many(apiKeys),
 }));
-
 // Next Auth Tables
 export const accounts = pgTable(
   "account",
@@ -74,7 +72,6 @@ export const verificationTokens = pgTable(
     }),
   })
 );
-
 // Contacts Table (Prospects/Cold Email Recipients)
 export const contacts = pgTable("contacts", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -126,13 +123,16 @@ export const lists = pgTable("lists", {
     .notNull()
     .references(() => users.id),
 
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
-
 export const listsRelations = relations(lists, ({ many, one }) => ({
-  campaigns: many(campaigns),
+  // campaigns: many(campaigns),
   createdBy: one(users, {
     fields: [lists.createdById],
     references: [users.id],
@@ -157,7 +157,6 @@ export const contactsToLists = pgTable(
     }),
   ]
 );
-
 export const contactsToListsRelations = relations(
   contactsToLists,
   ({ one }) => ({
@@ -195,27 +194,79 @@ export const campaigns = pgTable("campaigns", {
 
   name: text("name").notNull(),
   description: text("description"),
+
+  // The User that created it
   createdById: text("created_by_id")
     .notNull()
     .references(() => users.id),
 
   status: text("status").default("draft"),
+
+  // The Template that will be used to send the messages
   templateId: uuid("template_id")
     .notNull()
     .references(() => emailTemplates.id),
-  listId: uuid("list_id").references(() => lists.id), // Simplified list association
+
   sendFromEmail: text("send_from_email").notNull(),
   sendFromName: text("send_from_name").notNull(),
   replyToEmail: text("reply_to_email"),
+
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+
   trackOpens: boolean("track_opens").default(true),
   trackClicks: boolean("track_clicks").default(true),
+
   settings: json("settings").default({}),
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+export const campaignsRelations = relations(campaigns, ({ many, one }) => ({
+  // One User owns the campaign
+  createdBy: one(users, {
+    fields: [campaigns.createdById],
+    references: [users.id],
+  }),
+  // The Campaign has One Template
+  template: one(emailTemplates, {
+    fields: [campaigns.templateId],
+    references: [emailTemplates.id],
+  }),
+  emailMessages: many(emailMessages),
+
+  campaignsToLists: many(campaignsToLists),
+}));
+export const campaignsToLists = pgTable(
+  "campaigns_to_lists",
+  {
+    campaignId: uuid("campaign_id")
+      .notNull()
+      .references(() => campaigns.id),
+    listId: uuid("list_id")
+      .notNull()
+      .references(() => lists.id),
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.campaignId, t.listId],
+    }),
+  ]
+);
+export const campaignsToListsRelations = relations(
+  campaignsToLists,
+  ({ one }) => ({
+    campaign: one(campaigns, {
+      fields: [campaignsToLists.campaignId],
+      references: [campaigns.id],
+    }),
+    list: one(lists, {
+      fields: [campaignsToLists.listId],
+      references: [lists.id],
+    }),
+  })
+);
 
 // Email Messages (Individual emails sent)
 export const emailMessages = pgTable("email_messages", {
@@ -339,22 +390,6 @@ export const emailTemplatesRelations = relations(
     }),
   })
 );
-
-export const campaignsRelations = relations(campaigns, ({ many, one }) => ({
-  template: one(emailTemplates, {
-    fields: [campaigns.templateId],
-    references: [emailTemplates.id],
-  }),
-  list: one(lists, {
-    fields: [campaigns.listId],
-    references: [lists.id],
-  }),
-  emailMessages: many(emailMessages),
-  createdBy: one(users, {
-    fields: [campaigns.createdById],
-    references: [users.id],
-  }),
-}));
 
 export const emailMessagesRelations = relations(
   emailMessages,

@@ -1,9 +1,5 @@
 // app/page.jsx
 
-// export const dynamic = "force-static"; // Forces static rendering
-/* Statically pre-rendered at build time (no dynamic data fetching) */
-/* Vercel can deploy and cache this page to a CDN on the edge runtime to gurantee faster load speeds from client->server->client */
-
 import { redirect } from "next/navigation";
 import { ArrowRight, Mail, Check, Zap, Shield, Star } from "lucide-react";
 import Header from "@/components/landing-page/header";
@@ -11,6 +7,7 @@ import Faq from "@/components/landing-page/faq";
 import FramerDashboardShow from "@/components/landing-page/framer-dash-show";
 import getSession from "@/lib/get-session";
 
+/* dynamically pre-rendered in the server, we need the auth cookies to identify which components to render or redirect the client to. */
 export default async function HomePage() {
   const session = await getSession();
   const user = session?.user;
@@ -28,8 +25,8 @@ export default async function HomePage() {
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 md:pr-8">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                <span className="text-blue-600">Cold Email</span> That Actually
-                Gets Responses
+                <span className="text-blue-600">Cold Emails</span> Que de Verdad
+                Responden
               </h1>
               <p className="mt-6 text-xl text-gray-600">
                 Automate your outreach with personalized, high-converting email

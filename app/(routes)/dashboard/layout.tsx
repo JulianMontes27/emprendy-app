@@ -9,7 +9,6 @@ interface DashboardLayoutProps {
     userId: string;
   };
 }
-
 export const routes: RouteList = [
   {
     href: `/dashboard`,

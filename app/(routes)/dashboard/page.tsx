@@ -1,5 +1,4 @@
 // app/dashboard/page.tsx
-
 import {
   Card,
   CardContent,
@@ -23,7 +22,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <DashboardMetrics user={user} />
+      <DashboardMetrics />
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="lg:col-span-4">

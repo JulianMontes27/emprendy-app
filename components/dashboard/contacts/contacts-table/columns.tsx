@@ -13,23 +13,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { Contact } from "@/types/types";
 
 // Contact type from your Drizzle schema
-export type Contact = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string;
-  companyName: string | null;
-  jobTitle: string | null;
-  status: string;
-  tags: string[];
-  createdAt: Date;
-};
 
 export const columns: ColumnDef<Contact>[] = [
   {
-    accessorKey: "name",
+    id: "name", // Use `id` instead of `accessorKey` since we're using `accessorFn`
     header: ({ column }) => {
       return (
         <Button
@@ -94,7 +84,7 @@ export const columns: ColumnDef<Contact>[] = [
         </Badge>
       );
     },
-    filterFn: (row, id, value) => {
+    filterFn: (row, id, value: string[]) => {
       return value.includes(row.getValue(id));
     },
   },
@@ -102,7 +92,7 @@ export const columns: ColumnDef<Contact>[] = [
     accessorKey: "tags",
     header: "Tags",
     cell: ({ row }) => {
-      const tags = row.original.tags || [];
+      const tags = row.original.tags;
       if (tags.length === 0)
         return <div className="text-muted-foreground text-sm">No tags</div>;
 
@@ -137,7 +127,7 @@ export const columns: ColumnDef<Contact>[] = [
     },
     cell: ({ row }) => {
       // Format the date to a readable format
-      return <div>{new Date(row.original.createdAt).toLocaleDateString()}</div>;
+      return <div>{row.original.createdAt.toLocaleDateString()}</div>;
     },
   },
   {

@@ -1,3 +1,4 @@
+import { Contact, List } from "@/types/types";
 import { create } from "zustand";
 
 export type ContactForm = {
@@ -14,7 +15,8 @@ export type ModalType =
 interface ModalData {
   contactForm?: ContactForm;
   import_options?: "excel" | "google_sheets" | "manual";
-  contacts?: any;
+  contacts?: Contact[];
+  contactLists?: List[];
 }
 
 interface ModalStore {
