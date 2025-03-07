@@ -72,9 +72,11 @@ export const verificationTokens = pgTable(
     }),
   })
 );
+
 // Contacts Table (Prospects/Cold Email Recipients)
 export const contacts = pgTable("contacts", {
   id: uuid("id").defaultRandom().primaryKey(),
+
   firstName: text("first_name"),
   lastName: text("last_name"),
   email: text("email").notNull(),
@@ -87,9 +89,12 @@ export const contacts = pgTable("contacts", {
   companySize: text("company_size"),
   location: text("location"),
   source: text("source"),
+
   notes: text("notes"),
   tags: json("tags").default([]),
+
   customFields: json("custom_fields").default({}),
+  
   isVerified: boolean("is_verified").default(false),
   status: text("status").default("active"),
 

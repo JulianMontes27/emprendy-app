@@ -1,6 +1,5 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
-import * as XLSX from "xlsx";
 import { db } from "@/db"; // Assuming you have a db connection file
 import { contacts } from "@/db/schema"; // Import your schema
 import { validateContacts } from "@/lib/api/validate-contacts";
@@ -8,26 +7,29 @@ import { validateContacts } from "@/lib/api/validate-contacts";
 export async function POST(req: NextRequest) {
   const session = await auth();
   const user = session?.user;
-  if (!user)
+  if (!user || !user.id?.toString())
     return new NextResponse("Client not authenticated. Please sign in.", {
       status: 403,
     });
 
   try {
+    // Get the multipart/form-data from the http request
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const mappedContactsJson = formData.get("mappedContacts") as string | null;
-    const listId = formData.get("listId") as string | null;
 
     if (!file || !mappedContactsJson) {
       return new NextResponse("No file uploaded.", { status: 400 });
     }
-    // Before processing the file
+    // Check if the uploaded file exceeds 10 MB in size
     if (file.size > 10 * 1024 * 1024) {
-      return new NextResponse("File too large. Maximum 10MB allowed.", {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new NextResponse(
+        "El archivo es demasiado grande. Se permite un máximo de 10 MB.",
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
     // Parse mapped contacts
     const mappedContacts = JSON.parse(mappedContactsJson);
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
         // Existing duplicate and insert logic
         const existing = await tx.query.contacts.findFirst({
           where: (c, { eq, and }) =>
-            and(eq(c.email, contact.email), eq(c.userId, user.id)),
+            and(eq(c.email, contact.email), eq(c.userId, user.id!)),
         });
 
         if (!existing) {
@@ -64,22 +66,11 @@ export async function POST(req: NextRequest) {
             .returning();
 
           inserted.push(result[0]);
-
-          // List association logic
-          if (listId) {
-            await tx.insert(contactLists).values({
-              contactId: result[0].id,
-              listId: listId,
-              addedAt: new Date(),
-            });
-          }
         }
       }
 
       return inserted;
     });
-
-    console.log(contacts);
 
     return NextResponse.json(
       {

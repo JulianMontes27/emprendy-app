@@ -3,6 +3,28 @@ import { Server as NetServer, Socket } from "net";
 import { NextApiResponse } from "next";
 import { Server as SocketIOServer } from "socket.io";
 
+import { AdapterAccountType } from "next-auth/adapters";
+import { InferSelectModel, InferInsertModel } from "drizzle-orm";
+import {
+  users,
+  accounts,
+  sessions,
+  verificationTokens,
+  contacts,
+  lists,
+  contactsToLists,
+  emailTemplates,
+  campaigns,
+  campaignsToLists,
+  emailMessages,
+  emailOpens,
+  emailClicks,
+  sequences,
+  sequenceSteps,
+  contactSequences,
+  apiKeys,
+} from "@/db/schema"; // Assuming this will be imported from your schema file
+
 //create a custom Response type
 export type NextApiResponseServerIO = NextApiResponse & {
   socket: Socket & {
@@ -19,222 +41,100 @@ interface Route {
 }
 export type RouteList = Route[];
 
-import { AdapterAccountType } from "next-auth/adapters";
+// User types
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
 
-// Users Table Types
-export type User = {
-  id: string;
-  name: string | null;
-  email: string;
-  image: string | null;
-  // emailVerified: Date | null;
-  // createdAt: Date;
-};
+// Next Auth types
+export type Account = InferSelectModel<typeof accounts>;
+export type NewAccount = InferInsertModel<typeof accounts>;
 
-// Next Auth Types
-export type Account = {
-  userId: string;
-  type: AdapterAccountType;
-  provider: string;
-  providerAccountId: string;
-  refresh_token: string | null;
-  access_token: string | null;
-  expires_at: number | null;
-  token_type: string | null;
-  scope: string | null;
-  id_token: string | null;
-  session_state: string | null;
-};
-export type Session = {
-  sessionToken: string;
-  userId: string;
-  expires: Date;
-};
-export type VerificationToken = {
-  identifier: string;
-  token: string;
-  expires: Date;
-};
+export type Session = InferSelectModel<typeof sessions>;
+export type NewSession = InferInsertModel<typeof sessions>;
 
-// Contacts Table Types
-export type Contact = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string;
-  companyName: string | null;
-  jobTitle: string | null;
-  phone: string | null;
-  linkedinUrl: string | null;
-  website: string | null;
-  industry: string | null;
-  companySize: string | null;
-  location: string | null;
-  source: string | null;
-  notes: string | null;
-  tags: string[];
-  customFields: Record<string, any>;
-  isVerified: boolean;
-  status: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
+export type VerificationToken = InferSelectModel<typeof verificationTokens>;
+export type NewVerificationToken = InferInsertModel<typeof verificationTokens>;
 
-// Lists Types
-export type List = {
-  id: string;
-  name: string;
-  description: string | null;
-  createdById: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+// Contact types
+export type Contact = InferSelectModel<typeof contacts>;
+export type NewContact = InferInsertModel<typeof contacts>;
 
-// Contact-List Relationship Types
-export type ContactList = {
-  contactId: string;
-  listId: string;
-  addedAt: Date;
-};
+// List types
+export type List = InferSelectModel<typeof lists>;
+export type NewList = InferInsertModel<typeof lists>;
 
-// Email Templates Types
-export type EmailTemplate = {
-  id: string;
-  name: string;
-  subject: string;
-  content: string;
-  createdById: string;
-  type: string;
-  category: string;
-  variables: any[];
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+export type ContactToList = InferSelectModel<typeof contactsToLists>;
+export type NewContactToList = InferInsertModel<typeof contactsToLists>;
 
-// Campaigns Types
-export type Campaign = {
-  id: string;
-  name: string;
-  description: string | null;
-  createdById: string;
-  status: string;
-  templateId: string;
-  sendFromEmail: string;
-  sendFromName: string;
-  replyToEmail: string | null;
-  scheduledAt: Date | null;
-  sentAt: Date | null;
-  completedAt: Date | null;
-  trackOpens: boolean;
-  trackClicks: boolean;
-  settings: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
-};
+// Email template types
+export type EmailTemplate = InferSelectModel<typeof emailTemplates>;
+export type NewEmailTemplate = InferInsertModel<typeof emailTemplates>;
 
-// Campaign-List Relationship Types
-export type CampaignList = {
-  campaignId: string;
-  listId: string;
-  addedAt: Date;
-};
+// Campaign types
+export type Campaign = InferSelectModel<typeof campaigns>;
+export type NewCampaign = InferInsertModel<typeof campaigns>;
 
-// Email Messages Types
-export type EmailMessage = {
-  id: string;
-  campaignId: string | null;
-  contactId: string;
-  subject: string;
-  body: string;
-  status: string;
-  sentAt: Date | null;
-  deliveredAt: Date | null;
-  openedAt: Date | null;
-  clickedAt: Date | null;
-  bouncedAt: Date | null;
-  failedAt: Date | null;
-  failureReason: string | null;
-  emailProvider: string | null;
-  messageId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
+export type CampaignToList = InferSelectModel<typeof campaignsToLists>;
+export type NewCampaignToList = InferInsertModel<typeof campaignsToLists>;
 
-// Email Tracking Types
-export type EmailOpen = {
-  id: string;
-  messageId: string;
-  openedAt: Date;
-  ipAddress: string | null;
-  userAgent: string | null;
-  location: string | null;
-  device: string | null;
-};
+// Email message types
+export type EmailMessage = InferSelectModel<typeof emailMessages>;
+export type NewEmailMessage = InferInsertModel<typeof emailMessages>;
 
-export type EmailClick = {
-  id: string;
-  messageId: string;
-  url: string;
-  clickedAt: Date;
-  ipAddress: string | null;
-  userAgent: string | null;
-  location: string | null;
-  device: string | null;
-};
+export type EmailOpen = InferSelectModel<typeof emailOpens>;
+export type NewEmailOpen = InferInsertModel<typeof emailOpens>;
 
-// Sequences Types
-export type Sequence = {
-  id: string;
-  name: string;
-  description: string | null;
-  createdById: string;
-  status: string;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+export type EmailClick = InferSelectModel<typeof emailClicks>;
+export type NewEmailClick = InferInsertModel<typeof emailClicks>;
 
-// Sequence Steps Types
-export type SequenceStep = {
-  id: string;
-  sequenceId: string;
-  templateId: string;
-  order: number;
-  delayDays: number;
-  delayHours: number;
-  conditions: Record<string, any>;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+// Sequence types
+export type Sequence = InferSelectModel<typeof sequences>;
+export type NewSequence = InferInsertModel<typeof sequences>;
 
-// Contact Sequence Status Types
-export type ContactSequence = {
-  id: string;
-  contactId: string;
-  sequenceId: string;
-  currentStepId: string | null;
-  status: string;
-  startedAt: Date;
-  completedAt: Date | null;
-  nextSendAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
+export type SequenceStep = InferSelectModel<typeof sequenceSteps>;
+export type NewSequenceStep = InferInsertModel<typeof sequenceSteps>;
 
-// API Keys Types
-export type ApiKey = {
-  id: string;
-  userId: string;
-  name: string;
-  key: string;
-  lastUsedAt: Date | null;
-  expiresAt: Date | null;
-  isActive: boolean;
-  createdAt: Date;
-};
+export type ContactSequence = InferSelectModel<typeof contactSequences>;
+export type NewContactSequence = InferInsertModel<typeof contactSequences>;
 
+// API key types
+export type ApiKey = InferSelectModel<typeof apiKeys>;
+export type NewApiKey = InferInsertModel<typeof apiKeys>;
+
+// Custom field interfaces based on JSON columns
+export interface ContactTags extends Array<string> {}
+
+export interface ContactCustomFields {
+  [key: string]: string | number | boolean | null;
+}
+
+export interface CampaignSettings {
+  sendingWindow?: {
+    startTime?: string;
+    endTime?: string;
+    timezone?: string;
+  };
+  throttling?: {
+    emailsPerHour?: number;
+    emailsPerDay?: number;
+  };
+  deliveryOptions?: {
+    retryOnFail?: boolean;
+    maxRetries?: number;
+  };
+  [key: string]: any;
+}
+
+export interface SequenceStepConditions {
+  openedPrevious?: boolean;
+  clickedPrevious?: boolean;
+  replied?: boolean;
+  customConditions?: {
+    field: string;
+    operator: "equals" | "contains" | "greaterThan" | "lessThan";
+    value: string | number | boolean;
+  }[];
+  [key: string]: any;
+}
 // Relationships are handled by Drizzle ORM at runtime
 // and don't need explicit TypeScript interfaces

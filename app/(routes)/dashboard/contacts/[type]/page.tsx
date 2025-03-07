@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import axios from "axios";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -53,6 +54,7 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [excelColumns, setExcelColumns] = useState<string[]>([]);
   const [rawData, setRawData] = useState<any[]>([]);
@@ -65,6 +67,7 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const selectedFile = event.target.files?.[0];
+    //if the file uploaded exists or not poses an error, then process it
     if (selectedFile) {
       await processFile(selectedFile);
     }
@@ -97,6 +100,7 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
     setFile(file);
 
     try {
+      // for Files ending in .xlsx
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
@@ -175,7 +179,7 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
     }
   };
 
-  // Handle mapping completion
+  // Handle mapping submition
   const handleMappingComplete = async (mapping: Record<string, string>) => {
     const processedContacts = rawData.map((row) => {
       const contact: Record<string, any> = {};
@@ -187,13 +191,18 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
       return contact;
     });
 
+    // Create a new key-value pair Instance
     const formData = new FormData();
     formData.append("file", file!);
     formData.append("mappedContacts", JSON.stringify(processedContacts));
 
     try {
+      // manage server state
       setIsUploading(true);
       setUploadProgress(0);
+      setError(null); // Clear any previous errors
+
+      // query the API server
       const response = await axios.post("/api/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -205,18 +214,42 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
           setUploadProgress(progress);
         },
       });
-      console.log("Upload response:", response);
+
+      // Handle success
+      toast.success(
+        `Contactos  (${processedContacts.length}) importados exitosamente!`
+      );
+
+      // You might want to redirect or update UI
+      router.push("/dashboard/contacts"); // Redirect to contacts page
+      // OR
+      // setActiveStep(3); // Move to next step if using a stepper
+
+      return response.data; // Return the response data if needed elsewhere
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("Error en la importación (servidor):", error);
+
+      // Set error message for user
       if (axios.isAxiosError(error)) {
-        console.error("Response data:", error.response?.data);
+        const errorMessage =
+          error.response?.data?.message ||
+          "Algo falló durante la importación. Revisa tus contactos e intenta de nuevo.";
+        setError(errorMessage);
+        toast.error(errorMessage, {
+          duration: 4000,
+        });
+      } else {
+        setError("Error desconocido.");
+        toast.error(
+          "Error desconocido. Refresca el navegador e intenta otra de nuevo."
+        );
       }
+
+      return null;
     } finally {
       setIsUploading(false);
     }
   };
-
-  console.log(rawData);
 
   return (
     <div className="max-w-3xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -437,7 +470,10 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
             </CardContent>
             <CardFooter className="flex justify-end border-t pt-6">
               <Button
-                onClick={() => setShowMapping(true)}
+                onClick={() => {
+                  setShowMapping(true);
+                  router.push("#mapping_section");
+                }}
                 disabled={!file || isUploading}
               >
                 {isUploading ? "Importando..." : "Continuar"}
@@ -477,7 +513,7 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
         )}
       </div>
 
-      {/* Column Mapping Modal */}
+      {/* Column Mapping Component */}
       {showMapping && (
         <ColumnMappingModal
           excelColumns={excelColumns}

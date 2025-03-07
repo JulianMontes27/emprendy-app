@@ -1,4 +1,4 @@
-import { Contact, List } from "@/types/types";
+import { Contact, EmailTemplate, List } from "@/types/types";
 import { create } from "zustand";
 
 export type ContactForm = {
@@ -10,13 +10,16 @@ export type ModalType =
   | "contact"
   | "import-contacts"
   | "create-campaign"
-  | "create-contact-list";
+  | "create-contact-list"
+  | "create-template"
+  | "update-template";
 
 interface ModalData {
   contactForm?: ContactForm;
   import_options?: "excel" | "google_sheets" | "manual";
   contacts?: Contact[];
   contactLists?: List[];
+  templates?: EmailTemplate[];
 }
 
 interface ModalStore {

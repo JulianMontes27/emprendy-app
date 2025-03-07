@@ -1,11 +1,12 @@
 "use client";
 
 import axios from "axios";
+import { useState } from "react";
 import useModalStore from "@/hooks/use-store-modal";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, LucideMailPlus, Send, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -41,6 +42,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 // Form Schema for Validation
 const formSchema = z.object({
@@ -58,9 +62,10 @@ type CreateCampaignModalType = z.infer<typeof formSchema>;
 
 export default function CreateCampaignModal() {
   const { isOpen, onClose, modalType, data } = useModalStore();
+  const { templates = [], contactLists = [] } = data || {};
   const router = useRouter();
-
-  console.log(data.contactLists);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
 
   const form = useForm<CreateCampaignModalType>({
     resolver: zodResolver(formSchema),
@@ -78,220 +83,387 @@ export default function CreateCampaignModal() {
 
   const onSubmit = async (values: CreateCampaignModalType) => {
     try {
+      setIsSubmitting(true);
       // Send data to the backend
-      await axios.post("/api/campaigns", values).then(() => {
-        toast.success("Campaña creada!");
-        router.refresh();
-        onClose();
-      });
+      console.log(values);
+      await axios.post("/api/campaigns", values);
+      toast.success("Campaign created successfully!");
+      router.refresh();
+      onClose();
     } catch (error) {
-      toast.error("Algo salió mal. Intenta otra vez.");
+      toast.error("Something went wrong. Please try again.");
       console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const advanceTab = () => {
+    if (activeTab === "details") {
+      setActiveTab("audience");
+    } else if (activeTab === "audience") {
+      setActiveTab("content");
+    } else if (activeTab === "content") {
+      setActiveTab("schedule");
+    } else if (activeTab === "schedule") {
+      form.handleSubmit(onSubmit)();
     }
   };
 
   const isModalOpen = isOpen && modalType === "create-campaign";
 
+  // Check if the current tab is valid before advancing
+  const isCurrentTabValid = () => {
+    if (activeTab === "details") {
+      return (
+        !form.formState.errors.campaignName &&
+        !form.formState.errors.description
+      );
+    } else if (activeTab === "audience") {
+      return !form.formState.errors.contactList;
+    } else if (activeTab === "content") {
+      return (
+        !form.formState.errors.template &&
+        !form.formState.errors.subject &&
+        !form.formState.errors.emailBody
+      );
+    }
+    return true;
+  };
+
   return (
     <Dialog open={isModalOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-center text-xl font-bold">
+      <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-2 bg-gradient-to-r from-blue-600 to-purple-600">
+          <DialogTitle className="text-center text-xl font-bold text-white flex items-center justify-center">
+            <LucideMailPlus className="mr-2 h-5 w-5" />
             Crear Campaña
           </DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Campaign Details */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="campaignName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Campaign Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre de la campaña" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción (Opcional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Descripción breve sobre la campaña"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
-            {/* Contact List Selection */}
-            <FormField
-              control={form.control}
-              name="contactList"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Select Contact List</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a contact list" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="prospects">Prospects</SelectItem>
-                      <SelectItem value="clients">Clients</SelectItem>
-                      <SelectItem value="new">Upload New List</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-4 mb-4 px-6 pt-2">
+            <TabsTrigger value="details">Detalles</TabsTrigger>
+            <TabsTrigger value="audience">Audiencia</TabsTrigger>
+            <TabsTrigger value="content">Contenido</TabsTrigger>
+            <TabsTrigger value="schedule">Agenda</TabsTrigger>
+          </TabsList>
 
-            {/* Template Selection */}
-            <FormField
-              control={form.control}
-              name="template"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Choose Template</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a template" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="product-launch">
-                        Product Launch
-                      </SelectItem>
-                      <SelectItem value="follow-up">Follow-Up</SelectItem>
-                      <SelectItem value="networking">Networking</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-4 px-6 pb-6"
+            >
+              <TabsContent value="details" className="space-y-4 mt-0">
+                <Card>
+                  <CardContent className="pt-6">
+                    <FormField
+                      control={form.control}
+                      name="campaignName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-medium">
+                            <span className="font-bold">Nombre</span> de la
+                            Campaña
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='Por ejemplo, "Promoción de primavera 2025"'
+                              className="bg-gray-50 focus-visible:ring-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-            {/* Email Content */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="subject"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Subject Line</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter subject line" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="emailBody"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Body</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Write your email content here"
-                        rows={6}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel className="font-medium">
+                            Descripción (Opcional)
+                          </FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Breve descripción sobre el objetivo de la campaña"
+                              className="bg-gray-50 focus-visible:ring-blue-500 min-h-24"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            {/* Scheduling */}
-            <FormField
-              control={form.control}
-              name="isScheduled"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Schedule</FormLabel>
-                  <div className="flex items-center space-x-4">
-                    <Button
-                      type="button"
-                      variant={!field.value ? "default" : "outline"}
-                      onClick={() => field.onChange(false)}
-                    >
-                      Send Immediately
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={field.value ? "default" : "outline"}
-                      onClick={() => field.onChange(true)}
-                    >
-                      Schedule for Later
-                    </Button>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {form.watch("isScheduled") && (
-              <FormField
-                control={form.control}
-                name="scheduleDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
+              <TabsContent value="audience" className="space-y-4 mt-0">
+                <Card>
+                  <CardContent className="pt-6">
+                    <FormField
+                      control={form.control}
+                      name="contactList"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-medium">
+                            Seleccionar lista de contactos{" "}
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
                           >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+                            <FormControl>
+                              <SelectTrigger className="bg-gray-50 focus-visible:ring-blue-500">
+                                <SelectValue placeholder="Elija una lista de contactos" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {contactLists.length > 0 &&
+                                contactLists.map((list) => (
+                                  <SelectItem key={list.id} value={list.id}>
+                                    {list.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            {/* Submit Button */}
-            <div className="flex justify-end">
-              <Button type="submit">Create Campaign</Button>
-            </div>
-          </form>
-        </Form>
+              <TabsContent value="content" className="space-y-4 mt-0">
+                <Card>
+                  <CardContent className="pt-6">
+                    <FormField
+                      control={form.control}
+                      name="template"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-medium">
+                            Plantilla
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="bg-gray-50 focus-visible:ring-blue-500">
+                                <SelectValue placeholder="Escoge una Plantilla" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {templates.length > 0 ? (
+                                templates.map((template) => (
+                                  <SelectItem
+                                    key={template.id}
+                                    value={template.id}
+                                  >
+                                    {template.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <>
+                                  <SelectItem value="product-launch">
+                                    Product Launch
+                                  </SelectItem>
+                                  <SelectItem value="follow-up">
+                                    Follow-Up
+                                  </SelectItem>
+                                  <SelectItem value="networking">
+                                    Networking
+                                  </SelectItem>
+                                </>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator className="my-4" />
+
+                    <FormField
+                      control={form.control}
+                      name="subject"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-medium">
+                            Línea de asunto{" "}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder=""
+                              className="bg-gray-50 focus-visible:ring-blue-500"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="emailBody"
+                      render={({ field }) => (
+                        <FormItem className="mt-4">
+                          <FormLabel className="font-medium">
+                            <span className="font-bold">Contenido</span> del
+                            Email (puedes editar esto después)
+                          </FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Escribe aquí el contenido de tu correo electrónico o utiliza variables de plantilla."
+                              rows={8}
+                              className="bg-gray-50 focus-visible:ring-blue-500 min-h-32"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="schedule" className="space-y-4 mt-0">
+                <Card>
+                  <CardContent className="pt-6">
+                    <FormField
+                      control={form.control}
+                      name="isScheduled"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-medium">
+                            Opciones de <span className="font-bold">Envío</span>{" "}
+                          </FormLabel>
+                          <div className="flex items-center space-x-4 mt-2">
+                            <Button
+                              type="button"
+                              variant={!field.value ? "default" : "outline"}
+                              onClick={() => field.onChange(false)}
+                              className={cn(
+                                "flex-1 h-14",
+                                !field.value
+                                  ? "bg-blue-600 hover:bg-blue-700"
+                                  : "border-2"
+                              )}
+                            >
+                              <Send className="mr-2 h-4 w-4" />
+                              Enviar inmediatamente{" "}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={field.value ? "default" : "outline"}
+                              onClick={() => field.onChange(true)}
+                              className={cn(
+                                "flex-1 h-14",
+                                field.value
+                                  ? "bg-blue-600 hover:bg-blue-700"
+                                  : "border-2"
+                              )}
+                            >
+                              <Clock className="mr-2 h-4 w-4" />
+                              Agendar para después
+                            </Button>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {form.watch("isScheduled") && (
+                      <FormField
+                        control={form.control}
+                        name="scheduleDate"
+                        render={({ field }) => (
+                          <FormItem className="mt-4">
+                            <FormLabel className="font-medium">
+                              Seleccione fecha y hora{" "}
+                            </FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full justify-start text-left font-normal border-2",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {field.value ? (
+                                      format(field.value, "PPP")
+                                    ) : (
+                                      <span>Elige una fecha</span>
+                                    )}
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Navigation and Submit Buttons */}
+              <div className="flex justify-between pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (activeTab === "audience") setActiveTab("details");
+                    else if (activeTab === "content") setActiveTab("audience");
+                    else if (activeTab === "schedule") setActiveTab("content");
+                  }}
+                  className={cn(
+                    "border-2",
+                    activeTab === "details" && "invisible"
+                  )}
+                >
+                  Anterior
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={advanceTab}
+                  disabled={!isCurrentTabValid() || isSubmitting}
+                  className={cn(
+                    "bg-blue-600 hover:bg-blue-700",
+                    activeTab === "schedule" && "w-32"
+                  )}
+                >
+                  {activeTab === "schedule"
+                    ? isSubmitting
+                      ? "Creando..."
+                      : "Crear Campaña"
+                    : "Next"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

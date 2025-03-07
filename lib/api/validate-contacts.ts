@@ -1,5 +1,41 @@
+import { error } from "console";
+
 export function validateContacts(contacts: any[]) {
   const errors: any = [];
+
+  // console.log(contacts);
+  // [
+  //   {
+  //     firstName: "John",
+  //     lastName: "Doe",
+  //     email: "john.doe@example.com",
+  //     companyName: "Acme Corp",
+  //     jobTitle: "Software Engineer",
+  //     phone: "+1234567890",
+  //     linkedinUrl: "https://linkedin.com/in/johndoe",
+  //     website: "https://linkedin.com/in/johndoe",
+  //     industry: "Technology",
+  //     companySize: "201-500",
+  //     location: "New York, USA",
+  //     notes: "Met at a tech conference.",
+  //     tags: '["prospect", "follow-up"]',
+  //   },
+  //   {
+  //     firstName: "Jane",
+  //     lastName: "Smith",
+  //     email: "jane.smith@example.com",
+  //     companyName: "Beta LLC",
+  //     jobTitle: "Marketing Manager",
+  //     phone: "+1987654321",
+  //     linkedinUrl: "https://linkedin.com/in/janesmith",
+  //     website: "https://linkedin.com/in/janesmith",
+  //     industry: "Marketing",
+  //     companySize: "51-200",
+  //     location: "San Francisco, USA",
+  //     notes: "Interested in email campaigns.",
+  //     tags: '["lead", "high-priority"]',
+  //   },
+  // ];
 
   contacts.forEach((contact, index) => {
     // Minimum validation - email is the only truly required field
@@ -21,9 +57,9 @@ export function validateContacts(contacts: any[]) {
     }
 
     // Optional: Add more specific validations
-    if (contact.tags && !Array.isArray(contact.tags)) {
-      errors.push(`Row ${index + 2}: Tags must be an array`);
-    }
+    // if (contact.tags && !Array.isArray(contact.tags)) {
+    //   errors.push(`Row ${index + 2}: Tags must be an array`);
+    // }
 
     // Optional: Length checks for specific fields
     const maxLengths = {
@@ -46,41 +82,4 @@ export function validateContacts(contacts: any[]) {
   });
 
   return errors;
-}
-
-// Example usage of flexible mapping
-function flexibleContactMapping(row: any) {
-  // Create a more forgiving mapping with fallback strategies
-  const mappings = [
-    {
-      schemaField: "firstName",
-      possibleFields: ["firstName", "first_name", "First Name", "first name"],
-    },
-    {
-      schemaField: "lastName",
-      possibleFields: ["lastName", "last_name", "Last Name", "last name"],
-    },
-    {
-      schemaField: "email",
-      possibleFields: ["email", "Email", "email address", "Email Address"],
-    },
-    // Add more mappings as needed
-  ];
-
-  const contact = {
-    source: "excel_import",
-    status: "active",
-    tags: [],
-  };
-
-  mappings.forEach((mapping) => {
-    for (const possibleField of mapping.possibleFields) {
-      if (row[possibleField]) {
-        contact[mapping.schemaField] = row[possibleField];
-        break;
-      }
-    }
-  });
-
-  return contact;
 }
