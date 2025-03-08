@@ -24,18 +24,33 @@ const campaignSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    // Get the current authenticated user
     const session = await auth();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse request body
     const body = await req.json();
-
-    // Validate request data
     const validationResult = campaignSchema.safeParse(body);
+
+    //     console.log(validationResult)
+    //     {
+    //   success: true,
+    //   data: {
+    //     campaignName: 'gngntkd',
+    //     description: 'dsdsd',
+    //     contactList: '95bf4dbb-b0ef-47dc-94a7-201c6f934b8d',
+    //     template: 'networking',
+    //     subject: 'dsdsds',
+    //     emailBody: 'dsdsdsd',
+    //     scheduleDate: '2025-03-17T05:00:00.000Z',
+    //     isScheduled: true,
+    //     sendFromName: 'Your Company',
+    //     sendFromEmail: 'noreply@yourcompany.com',
+    //     trackOpens: true,
+    //     trackClicks: true
+    //   }
+    // }
 
     if (!validationResult.success) {
       return NextResponse.json(
@@ -48,23 +63,22 @@ export async function POST(req: NextRequest) {
       campaignName,
       description,
       contactList,
-      template, // This is a string ID like "follow-up", not a UUID
+      template,
       subject,
       emailBody,
       scheduleDate,
       isScheduled,
       sendFromName,
       sendFromEmail,
-      replyToEmail,
       trackOpens,
       trackClicks,
     } = validationResult.data;
 
-    // First, look up the actual template UUID based on the provided string ID
+    // Resolve template ID
     const templateResult = await db
       .select({ id: emailTemplates.id })
       .from(emailTemplates)
-      .where(eq(emailTemplates.slug, template))
+      .where(eq(emailTemplates.name, template))
       .limit(1);
 
     if (!templateResult.length) {
@@ -76,30 +90,28 @@ export async function POST(req: NextRequest) {
 
     const templateId = templateResult[0].id;
 
-    // Determine campaign status based on scheduling
+    // Determine campaign status
     let status = "draft";
     if (isScheduled) {
       status = "scheduled";
     }
 
-    // Store email content and settings in the settings JSON field
+    // Store email content and settings
     const settings = {
       subject,
       emailBody,
       contactList,
-      // Any other settings you want to include
     };
 
-    // Create the campaign in the database using Drizzle
+    // Create the campaign
     const [campaign] = await db
       .insert(campaigns)
       .values({
-        id: undefined, // Let Drizzle handle the UUID generation
         name: campaignName,
         description: description || null,
-        createdById: session.user.id,
+        createdById: session.user.id!,
         status,
-        templateId, // Now using the actual UUID from the database
+        templateId,
         sendFromEmail,
         sendFromName,
         replyToEmail: replyToEmail || null,
@@ -110,14 +122,12 @@ export async function POST(req: NextRequest) {
         trackOpens,
         trackClicks,
         settings,
-        // createdAt and updatedAt will use defaultNow()
       })
       .returning();
 
-    // If it's not scheduled for later, add to queue
+    // If not scheduled, add to queue
     if (!isScheduled) {
       await db.insert(emailQueue).values({
-        id: undefined,
         campaignId: campaign.id,
         status: "queued",
         scheduledFor: new Date(),
@@ -125,11 +135,10 @@ export async function POST(req: NextRequest) {
         updatedAt: new Date(),
       });
 
-      // You might want to trigger a background job here
-      // e.g., await queueService.triggerSendingProcess(campaign.id);
+      // Trigger background job to send emails immediately
+      // await queueService.triggerSendingProcess(campaign.id);
     }
 
-    // Return the created campaign
     return NextResponse.json(
       {
         success: true,
@@ -140,7 +149,6 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     console.error("Campaign creation error:", error);
-
     return NextResponse.json(
       {
         error: "Failed to create campaign",

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Rest of the import logic remains the same
+    // Drizzle sql transaction to facilitate and handle various continuous calls to the db
     const insertedContacts = await db.transaction(async (tx) => {
       const inserted = [];
 

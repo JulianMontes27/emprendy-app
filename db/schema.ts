@@ -94,7 +94,7 @@ export const contacts = pgTable("contacts", {
   tags: json("tags").default([]),
 
   customFields: json("custom_fields").default({}),
-  
+
   isVerified: boolean("is_verified").default(false),
   status: text("status").default("active"),
 
@@ -162,6 +162,7 @@ export const contactsToLists = pgTable(
     }),
   ]
 );
+
 export const contactsToListsRelations = relations(
   contactsToLists,
   ({ one }) => ({
@@ -178,17 +179,21 @@ export const contactsToListsRelations = relations(
 
 // Email Templates
 export const emailTemplates = pgTable("email_templates", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+
   name: text("name").notNull(),
-  subject: text("subject").notNull(),
-  content: text("content").notNull(),
+  subject: text("subject"),
+  content: text("content"),
+
   createdById: text("created_by_id")
     .notNull()
     .references(() => users.id),
   type: text("type").default("html"),
   category: text("category").default("cold_email"),
-  variables: json("variables").default([]),
+  variables: json("variables").default([]), // store variables that 
+
   isActive: boolean("is_active").default(true),
+  
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
@@ -196,7 +201,6 @@ export const emailTemplates = pgTable("email_templates", {
 // Campaigns
 export const campaigns = pgTable("campaigns", {
   id: uuid("id").defaultRandom().primaryKey(),
-
   name: text("name").notNull(),
   description: text("description"),
 
@@ -204,25 +208,20 @@ export const campaigns = pgTable("campaigns", {
   createdById: text("created_by_id")
     .notNull()
     .references(() => users.id),
-
-  status: text("status").default("draft"),
-
   // The Template that will be used to send the messages
   templateId: uuid("template_id")
     .notNull()
     .references(() => emailTemplates.id),
 
+  status: text("status").default("draft"),
   sendFromEmail: text("send_from_email").notNull(),
   sendFromName: text("send_from_name").notNull(),
   replyToEmail: text("reply_to_email"),
-
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
-
   trackOpens: boolean("track_opens").default(true),
   trackClicks: boolean("track_clicks").default(true),
-
   settings: json("settings").default({}),
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -259,6 +258,7 @@ export const campaignsToLists = pgTable(
     }),
   ]
 );
+
 export const campaignsToListsRelations = relations(
   campaignsToLists,
   ({ one }) => ({

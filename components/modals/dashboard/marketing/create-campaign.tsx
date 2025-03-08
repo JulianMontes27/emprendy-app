@@ -458,7 +458,7 @@ export default function CreateCampaignModal() {
                     ? isSubmitting
                       ? "Creando..."
                       : "Crear Campaña"
-                    : "Next"}
+                    : "Próximo"}
                 </Button>
               </div>
             </form>

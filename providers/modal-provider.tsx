@@ -1,10 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { CreateListModal } from "@/components/modals/dashboard/contacts/upload-contacts";
 import ImportContactsModal from "@/components/modals/dashboard/contacts/import-contacts";
-import CreateCampaignModal from "@/components/modals/dashboard/marketing/create";
+import CreateCampaignModal from "@/components/modals/dashboard/marketing/create-campaign";
 import ContactUsFormProvider from "@/components/modals/landing/contact_us";
-import { useState, useEffect } from "react";
+import CreateTemplateModal from "@/components/modals/dashboard/marketing/templates/create-template";
 
 const ModalProvider = () => {
   const [isMounted, setisMounted] = useState(false);
@@ -21,6 +22,7 @@ const ModalProvider = () => {
       <ImportContactsModal />
       <CreateCampaignModal />
       <CreateListModal />
+      <CreateTemplateModal />
     </>
   );
 };

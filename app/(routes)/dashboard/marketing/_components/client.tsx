@@ -2,15 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Plus,
-  Users,
-  Mail,
-  ListFilter,
-  BarChart2,
-  Calendar,
-  Clock,
-} from "lucide-react";
+import { Plus, Users, Mail, ListFilter, Calendar } from "lucide-react";
 import {
   Table,
   TableBody,
