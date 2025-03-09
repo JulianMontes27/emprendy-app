@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
 import { relations } from "drizzle-orm";
+
 // Users Table (Admin/Marketing Users)
 export const users = pgTable("user", {
   id: text("id").notNull().primaryKey(),
@@ -19,15 +20,17 @@ export const users = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
 });
+
 // Relationships
 export const usersRelations = relations(users, ({ many }) => ({
-  contacts: many(contacts),
+  contacts: many(contacts), // One User is linked to MANY contacts
   lists: many(lists),
   emailTemplates: many(emailTemplates),
   campaigns: many(campaigns),
   sequences: many(sequences),
   apiKeys: many(apiKeys),
 }));
+
 // Next Auth Tables
 export const accounts = pgTable(
   "account",
@@ -76,10 +79,13 @@ export const verificationTokens = pgTable(
 // Contacts Table (Prospects/Cold Email Recipients)
 export const contacts = pgTable("contacts", {
   id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
 
   firstName: text("first_name"),
   lastName: text("last_name"),
-  email: text("email").notNull(),
   companyName: text("company_name"),
   jobTitle: text("job_title"),
   phone: text("phone"),
@@ -98,20 +104,16 @@ export const contacts = pgTable("contacts", {
   isVerified: boolean("is_verified").default(false),
   status: text("status").default("active"),
 
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
 export const contactsRelations = relations(contacts, ({ one, many }) => ({
   user: one(users, {
     fields: [contacts.userId],
     references: [users.id],
   }),
-
-  contactsToLists: many(contactsToLists), // many-to-many
+  contactsToLists: many(contactsToLists), // MANY-to-Many
 
   emailMessages: many(emailMessages),
   contactSequences: many(contactSequences),
@@ -120,15 +122,14 @@ export const contactsRelations = relations(contacts, ({ one, many }) => ({
 // Lists (Segments of contacts)
 export const lists = pgTable("lists", {
   id: uuid("id").defaultRandom().primaryKey(),
+  createdById: text("created_by_id")
+    .notNull()
+    .references(() => users.id),
+  isActive: boolean("is_active").default(true).notNull(),
 
   name: text("name").notNull(),
   description: text("description"),
 
-  createdById: text("created_by_id")
-    .notNull()
-    .references(() => users.id),
-
-  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -136,20 +137,19 @@ export const lists = pgTable("lists", {
     .defaultNow()
     .notNull(),
 });
+
 export const listsRelations = relations(lists, ({ many, one }) => ({
-  // campaigns: many(campaigns),
   createdBy: one(users, {
     fields: [lists.createdById],
     references: [users.id],
   }),
-
-  contactsToLists: many(contactsToLists), // many-to-many
+  contactsToLists: many(contactsToLists), // MANY lists can have MANY contacts
 }));
 
 export const contactsToLists = pgTable(
   "contacts_to_lists",
   {
-    contactId: uuid("user_id")
+    contactId: uuid("contact_id")
       .notNull()
       .references(() => contacts.id),
     listId: uuid("list_id")
@@ -180,20 +180,16 @@ export const contactsToListsRelations = relations(
 // Email Templates
 export const emailTemplates = pgTable("email_templates", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
-
   name: text("name").notNull(),
   subject: text("subject"),
   content: text("content"),
-
   createdById: text("created_by_id")
     .notNull()
     .references(() => users.id),
   type: text("type").default("html"),
   category: text("category").default("cold_email"),
-  variables: json("variables").default([]), // store variables that 
-
+  variables: json("variables").default([]),
   isActive: boolean("is_active").default(true),
-  
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
@@ -203,17 +199,13 @@ export const campaigns = pgTable("campaigns", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-
-  // The User that created it
   createdById: text("created_by_id")
     .notNull()
     .references(() => users.id),
-  // The Template that will be used to send the messages
   templateId: uuid("template_id")
     .notNull()
     .references(() => emailTemplates.id),
-
-  status: text("status").default("draft"),
+  status: text("status").default("borrador"),
   sendFromEmail: text("send_from_email").notNull(),
   sendFromName: text("send_from_name").notNull(),
   replyToEmail: text("reply_to_email"),
@@ -223,25 +215,24 @@ export const campaigns = pgTable("campaigns", {
   trackOpens: boolean("track_opens").default(true),
   trackClicks: boolean("track_clicks").default(true),
   settings: json("settings").default({}),
-
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
 export const campaignsRelations = relations(campaigns, ({ many, one }) => ({
-  // One User owns the campaign
   createdBy: one(users, {
     fields: [campaigns.createdById],
     references: [users.id],
   }),
-  // The Campaign has One Template
   template: one(emailTemplates, {
     fields: [campaigns.templateId],
     references: [emailTemplates.id],
   }),
   emailMessages: many(emailMessages),
-
   campaignsToLists: many(campaignsToLists),
+  emailQueue: many(emailQueue), // Add this line
 }));
+
 export const campaignsToLists = pgTable(
   "campaigns_to_lists",
   {
@@ -297,6 +288,7 @@ export const emailMessages = pgTable("email_messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
 // Email Tracking
 export const emailOpens = pgTable("email_opens", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -309,6 +301,7 @@ export const emailOpens = pgTable("email_opens", {
   location: text("location"),
   device: text("device"),
 });
+
 export const emailClicks = pgTable("email_clicks", {
   id: uuid("id").defaultRandom().primaryKey(),
   messageId: uuid("message_id")
@@ -335,6 +328,7 @@ export const sequences = pgTable("sequences", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
 // Sequence Steps
 export const sequenceSteps = pgTable("sequence_steps", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -352,6 +346,7 @@ export const sequenceSteps = pgTable("sequence_steps", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
 // Contact Sequence Status
 export const contactSequences = pgTable("contact_sequences", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -384,6 +379,26 @@ export const apiKeys = pgTable("api_keys", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+// Email Queue
+export const emailQueue = pgTable("email_queue", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  campaignId: uuid("campaign_id")
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  status: text("status").default("queued"),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const emailQueueRelations = relations(emailQueue, ({ one }) => ({
+  campaign: one(campaigns, {
+    fields: [emailQueue.campaignId],
+    references: [campaigns.id],
+  }),
+}));
+
+// Relationships for Email Templates
 export const emailTemplatesRelations = relations(
   emailTemplates,
   ({ many, one }) => ({
@@ -396,6 +411,7 @@ export const emailTemplatesRelations = relations(
   })
 );
 
+// Relationships for Email Messages
 export const emailMessagesRelations = relations(
   emailMessages,
   ({ one, many }) => ({
@@ -412,6 +428,7 @@ export const emailMessagesRelations = relations(
   })
 );
 
+// Relationships for Sequences
 export const sequencesRelations = relations(sequences, ({ many, one }) => ({
   steps: many(sequenceSteps),
   contactSequences: many(contactSequences),
@@ -421,6 +438,7 @@ export const sequencesRelations = relations(sequences, ({ many, one }) => ({
   }),
 }));
 
+// Relationships for Sequence Steps
 export const sequenceStepsRelations = relations(sequenceSteps, ({ one }) => ({
   sequence: one(sequences, {
     fields: [sequenceSteps.sequenceId],
@@ -432,6 +450,7 @@ export const sequenceStepsRelations = relations(sequenceSteps, ({ one }) => ({
   }),
 }));
 
+// Relationships for Contact Sequences
 export const contactSequencesRelations = relations(
   contactSequences,
   ({ one }) => ({
@@ -450,6 +469,7 @@ export const contactSequencesRelations = relations(
   })
 );
 
+// Relationships for API Keys
 export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
   user: one(users, {
     fields: [apiKeys.userId],

@@ -9,10 +9,11 @@ export type ContactForm = {
 export type ModalType =
   | "contact"
   | "import-contacts"
-  | "create-campaign"
   | "create-contact-list"
+  | "update-contact-list"
   | "create-template"
-  | "update-template";
+  | "update-template"
+  | "create-campaign";
 
 interface ModalData {
   contactForm?: ContactForm;

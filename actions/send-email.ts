@@ -1,44 +1,44 @@
 "use server";
 
-import { EmailTemplate } from "@/components/email/email-template";
+import { EmailTemplate as Template } from "@/components/dashboard/templates/email-templates";
+import { Campaign, EmailTemplate } from "@/types/types";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function sendEmail(formData: FormData) {
-  console.log(formData);
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const message = formData.get("message") as string;
-
-  if (!name || typeof name !== "string") {
-    return { error: "Invalid message." };
-  }
-  if (!email || typeof email !== "string") {
-    return { error: "Please verify your email." };
-  }
-  if (!message || typeof message !== "string") {
-    return { error: "Please verify your email." };
-  }
-
   try {
-    /* Mutate data on the server */
+    // Parse form data
+    const campaign = JSON.parse(formData.get("campaign") as string) as Campaign;
+    const template = JSON.parse(
+      formData.get("template") as string
+    ) as EmailTemplate;
+    const contacts = JSON.parse(formData.get("contacts") as string) as any[];
+    let emailRecipients = contacts.flatMap((contact) => contact.email);
+    emailRecipients.push("julianmontesps4@gmail.com");
+
+    // Send emails using Resend
     const { data, error } = await resend.emails.send({
-      from: "Acme <onboarding@resend.dev>",
+      from: `${campaign.sendFromName} <${campaign.sendFromEmail}>`,
       to: ["julianmontesps4@gmail.com"],
-      subject: "Club de Tenis de Bocagrande",
-      react: EmailTemplate({ name, email, message }) as React.ReactElement,
-      replyTo: email,
+      // subject: campaign.settings.subject,
+      subject: "Test email",
+      react: Template({
+        // subject: campaign.settings.subject,
+        // body: campaign.settings.emailBody,
+        subject: "TEST",
+        body: "Test email",
+      }) as React.ReactElement,
+      replyTo: campaign.replyToEmail || campaign.sendFromEmail,
     });
 
     if (error) {
-      return {
-        error,
-      };
+      return { error: error.message };
     }
-    return data;
+
+    return { success: true };
   } catch (error) {
-    console.log(error);
-    return null;
+    console.error("Error sending email:", error);
+    return { error: "Failed to send email." };
   }
 }

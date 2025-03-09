@@ -15,20 +15,14 @@ const MarketingPage = async () => {
   // Use a transaction to fetch all data
   const [campaignList, listList, templates] = await db.transaction(
     async (tx) => {
-      const campaignList = await tx
-        .select()
-        .from(campaigns)
-        .where(eq(campaigns.createdById, user.id!));
-
-      const listList = await tx
-        .select()
-        .from(lists)
-        .where(eq(lists.createdById, user.id!));
-
-      const templates = await tx
-        .select()
-        .from(emailTemplates)
-        .where(eq(emailTemplates.createdById, user.id!));
+      const [campaignList, listList, templates] = await Promise.all([
+        tx.select().from(campaigns).where(eq(campaigns.createdById, user.id!)),
+        tx.select().from(lists).where(eq(lists.createdById, user.id!)),
+        tx
+          .select()
+          .from(emailTemplates)
+          .where(eq(emailTemplates.createdById, user.id!)),
+      ]);
 
       return [campaignList, listList, templates];
     }

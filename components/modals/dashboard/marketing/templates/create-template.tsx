@@ -37,19 +37,18 @@ import { Card, CardContent } from "@/components/ui/card";
 
 // Form Schema for Validation
 const templateSchema = z.object({
-  name: z.string().min(1, "Template name is required"), // only required field to create the schema
-  subject: z.string().min(1, "Subject is required").optional(),
-  content: z.string().min(1, "Content is required").optional(),
-  type: z.string().default("html").optional(),
-  category: z.string().default("cold_email").optional(),
-  variables: z.array(z.string()).default([]).optional(),
-  isActive: z.boolean().default(true).optional(),
+  name: z.string().min(1, "El nombre de la plantilla es requerido."),
+  subject: z.union([z.string().min(1, "Rellenar"), z.literal("")]).optional(),
+  content: z.union([z.string().min(1, "Rellenar"), z.literal("")]).optional(),
+  type: z.string().default("html"),
+  category: z.string().default("cold_email"),
+  isActive: z.boolean().default(true),
 });
 
 type CreateTemplateModalType = z.infer<typeof templateSchema>;
 
 export default function CreateTemplateModal() {
-  const { isOpen, onClose, modalType } = useModalStore();
+  const { isOpen, onClose, modalType, data } = useModalStore();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,9 +58,8 @@ export default function CreateTemplateModal() {
       name: "",
       subject: "",
       content: "",
-      type: "html",
+      type: "text",
       category: "cold_email",
-      variables: [],
       isActive: true,
     },
   });
@@ -70,7 +68,7 @@ export default function CreateTemplateModal() {
     try {
       setIsSubmitting(true);
       // Send data to the backend
-      await axios.post("/api/templates", values);
+      await axios.post("/api/campaigns/templates", values);
       toast.success("Template created successfully!");
       router.refresh();
       onClose();
@@ -89,7 +87,7 @@ export default function CreateTemplateModal() {
       <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 bg-gradient-to-r from-blue-600 to-purple-600">
           <DialogTitle className="text-center text-xl font-bold text-white flex items-center justify-center">
-            Create Email Template
+            Crea una plantilla para correos
           </DialogTitle>
         </DialogHeader>
 
@@ -223,25 +221,6 @@ export default function CreateTemplateModal() {
                 />
 
                 {/* Variables */}
-                <FormField
-                  control={form.control}
-                  name="variables"
-                  render={({ field }) => (
-                    <FormItem className="mt-4">
-                      <FormLabel className="font-medium">
-                        Variables (separadas por comas ',' )
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., {{name}}, {{company}}"
-                          className="bg-gray-50 focus-visible:ring-blue-500"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </CardContent>
             </Card>
 

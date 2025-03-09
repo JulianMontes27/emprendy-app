@@ -1,10 +1,8 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db"; // Assuming you have a db connection file
-import { contacts, lists, contactsToLists } from "@/db/schema"; // Import your schema
-import { validateContacts } from "@/lib/api/validate-contacts";
+import { db } from "@/db";
+import { contacts, lists, contactsToLists } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid"; // You may need to install this package
 
 export async function POST(req: NextRequest) {
   const session = await auth();

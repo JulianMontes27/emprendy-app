@@ -2,7 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Users, Mail, ListFilter, Calendar } from "lucide-react";
+import {
+  Plus,
+  Users,
+  Mail,
+  ListFilter,
+  Calendar,
+  ArrowUpRight,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import useModalStore from "@/hooks/use-store-modal";
 import { Campaign, List, EmailTemplate } from "@/types/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from "next/navigation";
 
 interface MarketingPageClientProps {
   campaigns: Campaign[];
@@ -27,17 +35,18 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
   templates,
   contactLists,
 }) => {
+  const router = useRouter();
   const { onOpen } = useModalStore();
 
   // Status badge color mapping
   const getStatusColor = (status: string) => {
     const statusMap: Record<string, string> = {
-      draft: "bg-gray-200 text-gray-800",
-      scheduled: "bg-blue-100 text-blue-800",
-      active: "bg-green-100 text-green-800",
-      completed: "bg-purple-100 text-purple-800",
-      paused: "bg-yellow-100 text-yellow-800",
-      failed: "bg-red-100 text-red-800",
+      borrador: "bg-gray-200 text-gray-800",
+      programado: "bg-blue-100 text-blue-800",
+      activo: "bg-green-100 text-green-800",
+      completado: "bg-purple-100 text-purple-800",
+      pausado: "bg-yellow-100 text-yellow-800",
+      fallido: "bg-red-100 text-red-800",
     };
     return statusMap[status] || "bg-gray-200 text-gray-800";
   };
@@ -65,7 +74,10 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
         <div className="flex space-x-2">
           <Button
             onClick={() =>
-              onOpen("create-campaign", { templates, contactLists })
+              onOpen("create-campaign", {
+                templates: templates,
+                contactLists: contactLists,
+              })
             }
             className="flex items-center"
           >
@@ -146,7 +158,14 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                     Crea tu primera campaña de email para comenzar a interactuar
                     con tus contactos.
                   </p>
-                  <Button onClick={() => onOpen("create-campaign")}>
+                  <Button
+                    onClick={() =>
+                      onOpen("create-campaign", {
+                        contactLists,
+                        templates,
+                      })
+                    }
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Crear campaña
                   </Button>
@@ -157,9 +176,7 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                     <TableRow>
                       <TableHead>Nombre</TableHead>
                       <TableHead>Estado</TableHead>
-                      <TableHead>Agendado para</TableHead>
-                      <TableHead>Plantilla</TableHead>
-                      <TableHead>Listas de Contactos</TableHead>
+                      <TableHead>Fecha (programada)</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -180,21 +197,18 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                             <span>{formatDate(campaign.scheduledAt)}</span>
                           </div>
                         </TableCell>
-                        <TableCell>{campaign.templateId}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="mr-1">
-                            {campaign.campaignsToLists?.length || 0} lists
-                          </Badge>
-                        </TableCell>
+
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              onOpen("view-campaign", { id: campaign.id })
+                              router.push(
+                                `/dashboard/marketing/campaigns/${campaign.id}`
+                              )
                             }
                           >
-                            View
+                            Editar <ArrowUpRight className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -274,9 +288,9 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              onOpen("update-template", { id: template.id })
-                            }
+                            // onClick={() =>
+                            //   onOpen("update-template", { id: template.id })
+                            // }
                           >
                             Edit
                           </Button>
@@ -295,14 +309,14 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Contact Lists</CardTitle>
+                <CardTitle>Lista de Contactos</CardTitle>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onOpen("createList")}
+                  onClick={() => onOpen("create-contact-list")}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Create
+                  Crear Lista
                 </Button>
               </div>
             </CardHeader>
@@ -310,11 +324,13 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
               {contactLists.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">No contact lists yet</h3>
+                  <h3 className="text-lg font-medium">
+                    No tienes listas de contactos
+                  </h3>
                   <p className="text-sm text-muted-foreground mt-1 mb-4">
-                    Create segmented lists to organize your contacts.
+                    Crea listas segmentadas para organizar tus contactos.{" "}
                   </p>
-                  <Button onClick={() => onOpen("createList")}>
+                  <Button onClick={() => onOpen("create-contact-list")}>
                     <Plus className="mr-2 h-4 w-4" />
                     Create List
                   </Button>
@@ -323,11 +339,10 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Contacts</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Fecha creación</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -336,9 +351,7 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                         <TableCell className="font-medium">
                           {list.name}
                         </TableCell>
-                        <TableCell>
-                          {list.contactsToLists?.length || 0} contacts
-                        </TableCell>
+
                         <TableCell>{formatDate(list.createdAt)}</TableCell>
                         <TableCell>
                           <Badge
@@ -355,7 +368,9 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onOpen("editList", { id: list.id })}
+                            // onClick={() =>
+                            //   onOpen("update-contact-list", { id: list.id })
+                            // }
                           >
                             Manage
                           </Button>

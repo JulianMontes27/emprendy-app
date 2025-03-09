@@ -48,12 +48,19 @@ import { Separator } from "@/components/ui/separator";
 
 // Form Schema for Validation
 const formSchema = z.object({
-  campaignName: z.string().min(1, "Campaign name is required"),
-  description: z.string().optional(),
-  contactList: z.string().min(1, "Contact list is required"),
-  template: z.string().min(1, "Template is required"),
-  subject: z.string().min(1, "Subject line is required"),
-  emailBody: z.string().min(1, "Email body is required"),
+  campaignName: z.string().min(1, "El nombre es obligatorio"),
+  description: z
+    .union([
+      z.string().min(1, "La descripción debe ser mayor que un carácter"),
+      z.literal(""),
+    ])
+    .optional(),
+  contactList: z
+    .union([z.string().min(1, "Escoge una lista de contactos"), z.literal("")])
+    .optional(),
+  template: z.string().min(1, "Plantilla obligatoria"),
+  subject: z.union([z.string().min(1, "Rellenar"), z.literal("")]).optional(),
+  emailBody: z.union([z.string().min(1, "Rellenar"), z.literal("")]).optional(),
   scheduleDate: z.date().optional(),
   isScheduled: z.boolean().default(false),
 });
@@ -61,11 +68,13 @@ const formSchema = z.object({
 type CreateCampaignModalType = z.infer<typeof formSchema>;
 
 export default function CreateCampaignModal() {
-  const { isOpen, onClose, modalType, data } = useModalStore();
-  const { templates = [], contactLists = [] } = data || {};
-  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+  const router = useRouter();
+
+  const { isOpen, onClose, modalType, data } = useModalStore();
+
+  const { contactLists, templates } = data;
 
   const form = useForm<CreateCampaignModalType>({
     resolver: zodResolver(formSchema),
@@ -85,9 +94,8 @@ export default function CreateCampaignModal() {
     try {
       setIsSubmitting(true);
       // Send data to the backend
-      console.log(values);
       await axios.post("/api/campaigns", values);
-      toast.success("Campaign created successfully!");
+      toast.success("Campaña creada exitosamente");
       router.refresh();
       onClose();
     } catch (error) {
@@ -99,19 +107,15 @@ export default function CreateCampaignModal() {
   };
 
   const advanceTab = () => {
+    // on re-renders, update the state of the activeTab
     if (activeTab === "details") {
       setActiveTab("audience");
     } else if (activeTab === "audience") {
       setActiveTab("content");
     } else if (activeTab === "content") {
       setActiveTab("schedule");
-    } else if (activeTab === "schedule") {
-      form.handleSubmit(onSubmit)();
     }
   };
-
-  const isModalOpen = isOpen && modalType === "create-campaign";
-
   // Check if the current tab is valid before advancing
   const isCurrentTabValid = () => {
     if (activeTab === "details") {
@@ -132,7 +136,10 @@ export default function CreateCampaignModal() {
   };
 
   return (
-    <Dialog open={isModalOpen} onOpenChange={onClose}>
+    <Dialog
+      open={isOpen && modalType === "create-campaign"}
+      onOpenChange={onClose}
+    >
       <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 bg-gradient-to-r from-blue-600 to-purple-600">
           <DialogTitle className="text-center text-xl font-bold text-white flex items-center justify-center">
@@ -218,11 +225,11 @@ export default function CreateCampaignModal() {
                           >
                             <FormControl>
                               <SelectTrigger className="bg-gray-50 focus-visible:ring-blue-500">
-                                <SelectValue placeholder="Elija una lista de contactos" />
+                                <SelectValue placeholder="Elegir" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {contactLists.length > 0 &&
+                              {contactLists?.length > 0 &&
                                 contactLists.map((list) => (
                                   <SelectItem key={list.id} value={list.id}>
                                     {list.name}
@@ -259,8 +266,8 @@ export default function CreateCampaignModal() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {templates.length > 0 ? (
-                                templates.map((template) => (
+                              {templates?.length > 0 ? (
+                                templates?.map((template) => (
                                   <SelectItem
                                     key={template.id}
                                     value={template.id}
@@ -269,17 +276,7 @@ export default function CreateCampaignModal() {
                                   </SelectItem>
                                 ))
                               ) : (
-                                <>
-                                  <SelectItem value="product-launch">
-                                    Product Launch
-                                  </SelectItem>
-                                  <SelectItem value="follow-up">
-                                    Follow-Up
-                                  </SelectItem>
-                                  <SelectItem value="networking">
-                                    Networking
-                                  </SelectItem>
-                                </>
+                                <></>
                               )}
                             </SelectContent>
                           </Select>
@@ -296,7 +293,7 @@ export default function CreateCampaignModal() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="font-medium">
-                            Línea de asunto{" "}
+                            Línea de asunto (Opcional)
                           </FormLabel>
                           <FormControl>
                             <Input
@@ -445,21 +442,19 @@ export default function CreateCampaignModal() {
                   Anterior
                 </Button>
 
-                <Button
+                <button
                   type="button"
-                  onClick={advanceTab}
-                  disabled={!isCurrentTabValid() || isSubmitting}
-                  className={cn(
-                    "bg-blue-600 hover:bg-blue-700",
-                    activeTab === "schedule" && "w-32"
-                  )}
+                  className="bg-blue-400 p-2 rounded-md text-white text-sm hover:bg-blue-300 transition-all"
+                  onClick={() => {
+                    if (activeTab === "schedule") {
+                      onSubmit(form.getValues()); // Submit the form directly
+                    } else {
+                      advanceTab();
+                    }
+                  }}
                 >
-                  {activeTab === "schedule"
-                    ? isSubmitting
-                      ? "Creando..."
-                      : "Crear Campaña"
-                    : "Próximo"}
-                </Button>
+                  {activeTab === "schedule" ? "Crear campaña" : "Siguiente"}
+                </button>
               </div>
             </form>
           </Form>
