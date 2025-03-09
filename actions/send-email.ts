@@ -19,7 +19,7 @@ export default async function sendEmail(formData: FormData) {
 
     // Send emails using Resend
     const { data, error } = await resend.emails.send({
-      from: `${campaign.sendFromName} <${campaign.sendFromEmail}>`,
+      from: "Acme <onboarding@resend.dev>",
       to: ["julianmontesps4@gmail.com"],
       // subject: campaign.settings.subject,
       subject: "Test email",
@@ -29,7 +29,7 @@ export default async function sendEmail(formData: FormData) {
         subject: "TEST",
         body: "Test email",
       }) as React.ReactElement,
-      replyTo: campaign.replyToEmail || campaign.sendFromEmail,
+      replyTo: "" ,
     });
 
     if (error) {

@@ -13,8 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, Mail, Send, Users } from "lucide-react";
 import { format } from "date-fns";
-import StartCampaignButton from "../../_components/start-campaign-btn";
 import { Contact } from "@/types/types";
+import StartCampaignButton from "../../_components/start-campaign-client";
 
 const CampaignPage = async ({
   params,
