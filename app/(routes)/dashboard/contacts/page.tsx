@@ -11,8 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListsDataTable } from "@/components/dashboard/contacts/lists/data-table";
 import { columns as listColumns } from "@/components/dashboard/contacts/lists/columns";
 
-import { UsersIcon, ListIcon, PlusIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { UsersIcon, ListIcon } from "lucide-react";
 import Link from "next/link";
 
 const ContactsPage = async ({

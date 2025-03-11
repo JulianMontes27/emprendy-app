@@ -288,11 +288,13 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            // onClick={() =>
-                            //   onOpen("update-template", { id: template.id })
-                            // }
+                            onClick={() =>
+                              router.push(
+                                `/dashboard/marketing/templates/${template.id}`
+                              )
+                            }
                           >
-                            Edit
+                            Editar
                           </Button>
                         </TableCell>
                       </TableRow>
