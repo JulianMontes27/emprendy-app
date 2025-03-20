@@ -32,7 +32,16 @@ import { DashboardMetrics } from "./_components/content";
 import getSession from "@/lib/get-session";
 import { db } from "@/db";
 
-import { campaigns, campaignsToLists, contacts, emailClicks, emailMessages, emailOpens, emailTemplates, lists } from "@/db/schema";
+import {
+  campaigns,
+  campaignsToLists,
+  contacts,
+  emailClicks,
+  emailMessages,
+  emailOpens,
+  emailTemplates,
+  lists,
+} from "@/db/schema";
 import { eq, count, desc, and, gte, lte, isNull, not } from "drizzle-orm";
 import { subDays, format } from "date-fns";
 import { es } from "date-fns/locale";

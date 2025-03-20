@@ -20,7 +20,6 @@ export const users = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
 });
-
 // Relationships
 export const usersRelations = relations(users, ({ many }) => ({
   contacts: many(contacts), // One User is linked to MANY contacts
@@ -30,6 +29,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   sequences: many(sequences),
   apiKeys: many(apiKeys),
 }));
+
+
 
 // Next Auth Tables
 export const accounts = pgTable(
@@ -76,6 +77,8 @@ export const verificationTokens = pgTable(
   })
 );
 
+
+
 // Contacts Table (Prospects/Cold Email Recipients)
 export const contacts = pgTable("contacts", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -107,7 +110,6 @@ export const contacts = pgTable("contacts", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
-
 export const contactsRelations = relations(contacts, ({ one, many }) => ({
   user: one(users, {
     fields: [contacts.userId],
@@ -137,7 +139,6 @@ export const lists = pgTable("lists", {
     .defaultNow()
     .notNull(),
 });
-
 export const listsRelations = relations(lists, ({ many, one }) => ({
   createdBy: one(users, {
     fields: [lists.createdById],
@@ -145,7 +146,6 @@ export const listsRelations = relations(lists, ({ many, one }) => ({
   }),
   contactsToLists: many(contactsToLists), // MANY lists can have MANY contacts
 }));
-
 export const contactsToLists = pgTable(
   "contacts_to_lists",
   {

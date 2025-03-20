@@ -1,48 +1,44 @@
+// app/api/auth/[...nextauth]/route.js
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { db } from "./db";
-
-// const adminEmails = process.env.ADMIN_EMAILS?.split(",");
+import { eq } from "drizzle-orm";
+import { accounts } from "./db/schema";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: DrizzleAdapter(db),
-  providers: [Google],
-  // pages: {
-  //   signIn: "/login",
-  // },
-  // callbacks: {
-  //   session: async ({ session, user }) => {
-  //     // Fetch additional user data from the database
-  //     const userFromDb = await db
-  //       .select({
-  //         role: users.role,
-  //       })
-  //       .from(users)
-  //       .where(eq(users.id, user.id))
-  //       .then((result) => result[0]);
-
-  //     if (userFromDb) {
-  //       // Merge additional user data into the session
-  //       session.user = {
-  //         ...session.user,
-  //         id: user.id,
-  //         role: userFromDb.role, // Fix: Get role from DB, not user.role
-  //       };
-  //     }
-
-  //     return session;
-  //   },
-  //   redirect({ url, baseUrl }) {
-  //     // Check if the URL is a relative URL
-  //     if (url.startsWith("/")) {
-  //       return `${baseUrl}${url}`;
-  //     }
-  //     // If the URL is already absolute or starts with the baseUrl
-  //     else if (new URL(url).origin === baseUrl) {
-  //       return url;
-  //     }
-  //     return baseUrl + "/dashboard"; // Default fallback redirect
-  //   },
-  // },
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          scope: [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/gmail.send",
+          ].join(" "),
+        },
+      },
+    }),
+  ],
+  callbacks: {
+    async session({ session, user }) {
+      const account = await db.query.accounts.findFirst({
+        where: eq(accounts.userId, user.id),
+      });
+      if (account) {
+        session.accessToken = account.access_token;
+        session.refreshToken = account.refresh_token;
+        session.provider = account.provider;
+        session.userId = user.id;
+        session.expiresAt = account.expires_at;
+      }
+      return session;
+    },
+  },
 });
