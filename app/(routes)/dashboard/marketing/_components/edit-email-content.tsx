@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,14 +9,12 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardHeader,
@@ -25,10 +23,10 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Save, Pencil, FileText, Type } from "lucide-react";
+import { Mail, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// The format of the data the client must submit
+// Define the schema for the form
 const formSchema = z.object({
   subject: z
     .string()
@@ -38,46 +36,174 @@ const formSchema = z.object({
     .max(100, {
       message: "El asunto no puede tener más de 100 caracteres",
     }),
-  emailBody: z
-    .string()
-    .min(10, {
-      message: "El cuerpo del email debe tener al menos 10 caracteres",
-    })
-    .max(5000, {
-      message: "El cuerpo del email no puede tener más de 5000 caracteres",
-    }),
 });
 
+// Email block interface
+interface EmailBlock {
+  type: string;
+  id: string;
+  content: string;
+}
+
 const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
+  // handle stateful variables
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+
   const router = useRouter();
 
-  // 1. Define your form.
+  // Parse the template content
+  const [templateBlocks, setTemplateBlocks] = useState<EmailBlock[]>([]);
+
+  useEffect(() => {
+    if (campaignData && campaignData.settings.emailBody) {
+      try {
+        const parsedContent = JSON.parse(campaignData.settings.emailBody);
+        setTemplateBlocks(parsedContent);
+      } catch (error) {
+        console.error("Error parsing template content:", error);
+        setTemplateBlocks([]);
+      }
+    }
+  }, [campaignData]);
+
+  // Initialize the form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       subject: campaignData?.settings?.subject || "",
-      emailBody: campaignData?.settings?.emailBody || "",
     },
   });
 
-  // 2. Define a submit handler.
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  // Handle updating block content
+  const updateBlockContent = (id: string, newContent: string) => {
+    setTemplateBlocks((prevBlocks) =>
+      prevBlocks.map((block) =>
+        block.id === id ? { ...block, content: newContent } : block
+      )
+    );
+  };
+
+  // Handle saving changes
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
 
     try {
-      // send request to mutate the server data and refresh the page to send a new request to the server for the updated server data (without re rendering client component)
-      const response = await axios
-        .post(`/api/campaigns/${campaignData.id}`, values)
-        .then(() => {
-          router.refresh();
-        });
+      const updatedContent = JSON.stringify(templateBlocks); // convert to JSON to comply with the database schema
+      await axios.post(`/api/campaigns/${campaignData.id}`, {
+        ...values,
+        emailBody: updatedContent,
+      });
+      router.refresh();
     } catch (error) {
       console.error("Error saving email content:", error);
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
+
+  // Editable content component
+  const EditableBlock = ({ block }: { block: EmailBlock }) => {
+    const [editing, setEditing] = useState(false);
+    const [content, setContent] = useState(block.content);
+
+    const handleBlur = () => {
+      setEditing(false);
+      updateBlockContent(block.id, content);
+    };
+
+    const handleClick = () => {
+      if (!isPreviewMode) {
+        setEditing(true);
+      }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleBlur();
+      }
+    };
+
+    if (editing && !isPreviewMode) {
+      return (
+        <div
+          className={`block-${block.type} border border-primary/50 p-2 rounded`}
+          data-block-id={block.id}
+        >
+          <textarea
+            autoFocus
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="w-full bg-transparent outline-none resize-none"
+            rows={Math.max(1, (content.match(/\n/g) || []).length + 1)}
+          />
+        </div>
+      );
+    }
+
+    let renderedContent;
+    switch (block.type) {
+      case "header":
+        renderedContent = (
+          <h1
+            className="text-2xl font-bold mb-4 cursor-text"
+            onClick={handleClick}
+            data-block-id={block.id}
+          >
+            {content}
+          </h1>
+        );
+        break;
+      case "text":
+        renderedContent = (
+          <p
+            className="mb-4 cursor-text"
+            onClick={handleClick}
+            data-block-id={block.id}
+          >
+            {content}
+          </p>
+        );
+        break;
+      case "divider":
+        renderedContent = (
+          <hr
+            className="my-4"
+            style={{ borderTop: content || "1px solid #EEEEEE" }}
+            data-block-id={block.id}
+          />
+        );
+        break;
+      case "footer":
+        renderedContent = (
+          <p
+            className="text-sm text-gray-500 mt-4 cursor-text"
+            onClick={handleClick}
+            data-block-id={block.id}
+          >
+            {content}
+          </p>
+        );
+        break;
+      default:
+        renderedContent = null;
+    }
+
+    return (
+      <div
+        className={`block-wrapper ${
+          !isPreviewMode
+            ? "hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors p-1 -m-1 rounded"
+            : ""
+        }`}
+      >
+        {renderedContent}
+      </div>
+    );
+  };
 
   return (
     <Card className="overflow-hidden border-border/40 shadow-sm transition-all duration-200 hover:shadow-md">
@@ -96,23 +222,15 @@ const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
               render={({ field }) => (
                 <FormItem className="space-y-3 transition-all duration-200">
                   <FormLabel className="flex items-center gap-2 text-base font-medium">
-                    <Type className="h-4 w-4 text-primary" />
                     Asunto del Email
                   </FormLabel>
                   <FormControl>
-                    <div className="relative group">
-                      <Input
-                        placeholder="Ej: Novedades de nuestra empresa"
-                        {...field}
-                        className="pl-3 pr-10 py-6 text-base transition-all duration-200 border-border/60 focus-visible:border-primary/50 shadow-sm"
-                      />
-                      <Pencil className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                    </div>
+                    <Input
+                      placeholder="Ej: Novedades de nuestra empresa"
+                      {...field}
+                      className="pl-3 pr-10 py-6 text-base transition-all duration-200 border-border/60 focus-visible:border-primary/50 shadow-sm"
+                    />
                   </FormControl>
-                  <FormDescription className="text-xs text-muted-foreground/80">
-                    El asunto es lo primero que verán tus destinatarios. Hazlo
-                    atractivo y relevante.
-                  </FormDescription>
                   <FormMessage className="text-xs font-medium" />
                 </FormItem>
               )}
@@ -120,37 +238,36 @@ const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
 
             <Separator className="my-6" />
 
-            <FormField
-              control={form.control}
-              name="emailBody"
-              render={({ field }) => (
-                <FormItem className="space-y-3 transition-all duration-200">
-                  <FormLabel className="flex items-center gap-2 text-base font-medium">
-                    <FileText className="h-4 w-4 text-primary" />
-                    Cuerpo del Email
-                  </FormLabel>
-                  <FormControl>
-                    <div className="relative group">
-                      <Textarea
-                        placeholder="Escribe aquí el contenido de tu email..."
-                        {...field}
-                        className="min-h-[200px] p-4 text-base transition-all duration-200 border-border/60 focus-visible:border-primary/50 resize-y shadow-sm"
-                      />
-                      <div className="absolute right-3 top-3 bg-background/80 backdrop-blur-sm p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <Pencil className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </FormControl>
-                  <FormDescription className="text-xs text-muted-foreground/80">
-                    Puedes usar texto plano o HTML para dar formato a tu
-                    mensaje. Mantén tu mensaje claro y conciso.
-                  </FormDescription>
-                  <FormMessage className="text-xs font-medium" />
-                </FormItem>
-              )}
-            />
+            <div className="flex justify-end gap-2 mb-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPreviewMode(!isPreviewMode)}
+                className="gap-2"
+              >
+                {isPreviewMode ? (
+                  <>
+                    <EyeOff className="h-4 w-4" />
+                    Salir de Vista Previa
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4" />
+                    Vista Previa
+                  </>
+                )}
+              </Button>
+            </div>
 
-            <div className="h-4"></div>
+            <div
+              className={`space-y-4 email-content-container ${
+                isPreviewMode ? "preview-mode" : "edit-mode"
+              }`}
+            >
+              {templateBlocks.map((block) => (
+                <EditableBlock key={block.id} block={block} />
+              ))}
+            </div>
           </form>
         </Form>
       </CardContent>
@@ -161,49 +278,10 @@ const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
         <Button
           type="submit"
           onClick={form.handleSubmit(onSubmit)}
-          disabled={isSubmitting || !form.formState.isDirty}
-          className="gap-2 min-w-[140px] relative overflow-hidden group"
+          disabled={isSubmitting}
+          className="gap-2 min-w-[140px]"
         >
-          {isSubmitting ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Guardando...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 transition-transform duration-300 group-hover:-translate-y-1 group-hover:translate-x-1" />
-              Guardar Cambios
-            </>
-          )}
-
-          {/* Animated background effect on hover */}
-          <span
-            className="absolute inset-0 bg-gradient-to-r from-primary-600/0 via-primary-600/30 to-primary-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10"
-            style={{
-              backgroundSize: "200% 100%",
-              backgroundPositionX: "-100%",
-              animation: "shimmer 2s infinite",
-            }}
-          />
+          {isSubmitting ? "Guardando..." : "Guardar Cambios"}
         </Button>
       </CardFooter>
     </Card>

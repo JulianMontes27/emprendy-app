@@ -91,10 +91,46 @@ export async function POST(req: NextRequest) {
     // Parse request body or use defaults
     let { to, subject, body } = await req.json().catch(() => ({}));
 
-    // Default values
-    to = to || "julianmontesps4@gmail.com";
-    subject = subject || "TEST EMAIL";
-    body = body || "Hello! This is a test email.";
+    // Ensure `to` is an array of email addresses
+    const recipients = Array.isArray(to) ? to : [to];
+
+    // Generate HTML content from the emailBody (template blocks)
+    let htmlContent = "<html><body>";
+    if (body) {
+      try {
+        // Parse the email body if its a string
+        const blocks = typeof body === "string" ? JSON.parse(body) : body;
+        // Generate HTML from blocks
+        blocks.forEach((block: string) => {
+          switch (block.type) {
+            case "header":
+              htmlContent += `<h1 style="font-size: 24px; font-weight: bold; margin-bottom: 16px;">${block.content}</h1>`;
+              break;
+            case "text":
+              htmlContent += `<p style="margin-bottom: 16px;">${block.content}</p>`;
+              break;
+            case "divider":
+              htmlContent += `<hr style="border: none; border-top: ${
+                block.content || "1px solid #EEEEEE"
+              }; margin: 16px 0;">`;
+              break;
+            case "footer":
+              htmlContent += `<p style="font-size: 14px; color: #777777; margin-top: 16px;">${block.content}</p>`;
+              break;
+          }
+        });
+      } catch (error) {
+        console.error("Error parsing email body:", error);
+        // Fallback to a default message if parsing fails
+        htmlContent += "<p>Hello,</p><p>This is an email from Emprendy.</p>";
+      }
+    } else {
+      // Fallback content if no emailBody is provided
+      htmlContent += "<p>Hello,</p><p>This is an email from Emprendy.</p>";
+    }
+
+    // Close the HTML
+    htmlContent += "</body></html>";
 
     // If we have an email in the session or account, use it
     const from = session.user?.email || "sender@example.com";
@@ -104,16 +140,12 @@ export async function POST(req: NextRequest) {
     // Build email with proper headers
     const emailLines = [
       `From: ${from}`,
-      `To: ${to}`,
+      `To: ${recipients.join(",")}`, // Join multiple recipients with commas
       `Subject: ${subject}`,
       "MIME-Version: 1.0",
       "Content-Type: text/html; charset=utf-8",
       "",
-      "<html><body>",
-      "<p>Hello,</p>",
-      "<p>This is a test email from Emprendy. We’re excited to reach out!</p>",
-      "<p>Best regards,<br>Julian Montes<br>Emprendy Team</p>",
-      "</body></html>",
+      htmlContent,
     ];
     const raw = Buffer.from(emailLines.join("\r\n"))
       .toString("base64")

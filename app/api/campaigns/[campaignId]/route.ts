@@ -10,7 +10,6 @@ export async function POST(
 ) {
   try {
     const { campaignId } = params;
-    console.log("Campaign ID:", campaignId);
 
     // Parse the incoming JSON data
     const body = await request.json();

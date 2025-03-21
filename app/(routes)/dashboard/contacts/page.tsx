@@ -1,18 +1,12 @@
 import getSession from "@/lib/get-session";
 import { redirect } from "next/navigation";
-import { DataTable } from "@/components/dashboard/contacts/contacts-table/data-table";
-import { columns } from "@/components/dashboard/contacts/contacts-table/columns";
 import { db } from "@/db";
 import { contacts, lists } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import ImportBtn from "@/components/dashboard/contacts/import-btn";
 import CreateContactListBtn from "../_components/contacts/create-list";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ListsDataTable } from "@/components/dashboard/contacts/lists/data-table";
-import { columns as listColumns } from "@/components/dashboard/contacts/lists/columns";
-
-import { UsersIcon, ListIcon } from "lucide-react";
-import Link from "next/link";
+import ContactsTabs from "./_components/contacts-tabs";
+import ButtonMap from "./_components/btn-map";
 
 const ContactsPage = async ({
   searchParams,
@@ -21,9 +15,6 @@ const ContactsPage = async ({
     tab: string;
   };
 }) => {
-  // Get current tab from URL or default to "contacts"
-  const currentTab = searchParams?.tab || "contacts";
-
   // Get the current session
   const session = await getSession();
   const user = session?.user;
@@ -41,12 +32,7 @@ const ContactsPage = async ({
 
   // Fetch Lists of the logged-in User
   const listsData = await db
-    .select({
-      id: lists.id,
-      name: lists.name,
-      isActive: lists.isActive,
-      createdAt: lists.createdAt,
-    })
+    .select({})
     .from(lists)
     .where(eq(lists.createdById, user.id));
 
@@ -63,51 +49,15 @@ const ContactsPage = async ({
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          {currentTab === "contacts" ? (
-            <>
-              <ImportBtn />
-            </>
-          ) : (
-            <CreateContactListBtn contacts={contactsData} />
-          )}
+          <ButtonMap
+            contactsData={contactsData}
+            // initialCurrentTab={currentTab}
+          />
         </div>
       </div>
 
-      {/* Tabs Section */}
-      <Tabs defaultValue={currentTab} className="w-full mb-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
-          <TabsTrigger value="contacts" asChild>
-            <Link
-              href="/dashboard/contacts?tab=contacts"
-              className="flex items-center gap-2"
-            >
-              <UsersIcon className="h-4 w-4" />
-              <span>Contactos</span>
-            </Link>
-          </TabsTrigger>
-          <TabsTrigger value="lists" asChild>
-            <Link
-              href="/dashboard/contacts?tab=lists"
-              className="flex items-center gap-2"
-            >
-              <ListIcon className="h-4 w-4" />
-              <span>Listas</span>
-            </Link>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="contacts" className="mt-0">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <DataTable columns={columns} data={contactsData} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="lists" className="mt-0">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <ListsDataTable columns={listColumns} data={listsData} />
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* tabs section */}
+      <ContactsTabs contactsData={contactsData} listsData={listsData} />
     </div>
   );
 };

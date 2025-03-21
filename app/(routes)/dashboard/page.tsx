@@ -45,17 +45,7 @@ import {
 import { eq, count, desc, and, gte, lte, isNull, not } from "drizzle-orm";
 import { subDays, format } from "date-fns";
 import { es } from "date-fns/locale";
-
-// Types for our data
-type Campaign = {
-  id: string;
-  name: string;
-  status: string;
-  sentAt: Date | null;
-  totalSent: number;
-  openRate: number;
-  replyRate: number;
-};
+import { Campaign, User } from "@/types/types";
 
 type ContactStats = {
   total: number;
@@ -90,30 +80,27 @@ type ScheduledCampaign = {
 export default async function DashboardPage() {
   const session = await getSession();
   const user = session?.user;
-  if (!user || user === undefined) return null;
 
-  // Data fetching functions
+  if (!user || !user.id) return null; // Ensures `user` is always defined
+
   async function getRecentCampaigns(): Promise<Campaign[]> {
+    if (!user) throw new Error("User is undefined"); // Additional safety check
+
     const thirtyDaysAgo = subDays(new Date(), 30);
 
     const campaignData = await db
-      .select({
-        id: campaigns.id,
-        name: campaigns.name,
-        status: campaigns.status,
-        sentAt: campaigns.sentAt,
-      })
+      .select({})
       .from(campaigns)
       .where(
         and(
-          eq(campaigns.createdById, user.id),
+          eq(campaigns.createdById, user.id), // No TypeScript error anymore
           gte(campaigns.createdAt, thirtyDaysAgo)
         )
       )
       .orderBy(desc(campaigns.createdAt))
       .limit(4);
 
-    // Get metrics for each campaign
+    // Fetch metrics
     const enrichedCampaigns = await Promise.all(
       campaignData.map(async (campaign: any) => {
         const sentCount = await db
@@ -164,6 +151,8 @@ export default async function DashboardPage() {
   }
 
   async function getContactStats(): Promise<ContactStats> {
+    if (!user) throw new Error("User is undefined"); // Additional safety check
+
     const thirtyDaysAgo = subDays(new Date(), 30);
 
     const totalContacts = await db
@@ -226,6 +215,8 @@ export default async function DashboardPage() {
   }
 
   async function getNextCampaign(): Promise<NextCampaign | null> {
+    if (!user) throw new Error("User is undefined"); // Additional safety check
+
     const now = new Date();
 
     const nextCampaignData = await db
@@ -267,6 +258,8 @@ export default async function DashboardPage() {
   }
 
   async function getScheduledCampaigns(): Promise<ScheduledCampaign[]> {
+    if (!user) throw new Error("User is undefined"); // Additional safety check
+
     const now = new Date();
 
     const scheduledCampaignsData = await db
@@ -336,6 +329,8 @@ export default async function DashboardPage() {
     clickRate: MetricStat;
     responseRate: MetricStat;
   }> {
+    if (!user) throw new Error("User is undefined"); // Additional safety check
+
     const thirtyDaysAgo = subDays(new Date(), 30);
     const sixtyDaysAgo = subDays(new Date(), 60);
 
@@ -446,6 +441,8 @@ export default async function DashboardPage() {
     scheduled: number;
     completed: number;
   }> {
+    if (!user) throw new Error("User is undefined"); // Additional safety check
+
     const thirtyDaysAgo = subDays(new Date(), 30);
 
     const totalCampaigns = await db

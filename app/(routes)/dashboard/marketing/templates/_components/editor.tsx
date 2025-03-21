@@ -528,7 +528,9 @@ const getColumnElements = (
     (_, idx) => Math.floor(idx / columns) === colIndex
   );
 };
-///////////////////////////////
+
+///////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////
 
 const TemplateEditor = ({ template }: { template: EmailTemplate }) => {
   // Parse template content if it exists, if not, initialize the state to an empty []
@@ -1084,7 +1086,7 @@ const TemplateEditor = ({ template }: { template: EmailTemplate }) => {
               htmlFor="templateName"
               className="block mb-2 text-sm font-medium"
             >
-              Template Name
+              Nombre
             </label>
             <Input
               id="templateName"
@@ -1096,7 +1098,7 @@ const TemplateEditor = ({ template }: { template: EmailTemplate }) => {
           </div>
           <div>
             <label htmlFor="subject" className="block mb-2 text-sm font-medium">
-              Subject Line
+              Sujeto (tema)
             </label>
             <Input
               id="subject"
@@ -1110,7 +1112,7 @@ const TemplateEditor = ({ template }: { template: EmailTemplate }) => {
 
         <div>
           <label htmlFor="category" className="block mb-2 text-sm font-medium">
-            Category
+            Categoría
           </label>
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="w-full md:w-1/3">
@@ -1118,9 +1120,6 @@ const TemplateEditor = ({ template }: { template: EmailTemplate }) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="cold_email">Cold Email</SelectItem>
-              <SelectItem value="newsletter">Newsletter</SelectItem>
-              <SelectItem value="notification">Notification</SelectItem>
-              <SelectItem value="transactional">Transactional</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1130,11 +1129,11 @@ const TemplateEditor = ({ template }: { template: EmailTemplate }) => {
         <TabsList className="grid w-full md:w-64 grid-cols-2">
           <TabsTrigger value="edit" className="flex items-center gap-2">
             <Edit2 size={16} />
-            <span>Edit</span>
+            <span>Editar</span>
           </TabsTrigger>
           <TabsTrigger value="preview" className="flex items-center gap-2">
             <Eye size={16} />
-            <span>Preview</span>
+            <span>Vista previa</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -1148,7 +1147,7 @@ const TemplateEditor = ({ template }: { template: EmailTemplate }) => {
             <Card>
               <CardContent className="p-4">
                 <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide mb-3">
-                  Elements
+                  Elementos
                 </h3>
                 <div className="space-y-1">
                   <DraggableItem

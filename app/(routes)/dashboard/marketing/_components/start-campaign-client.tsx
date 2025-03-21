@@ -4,26 +4,15 @@ import { useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { Send, Loader2 } from "lucide-react";
+import { Campaign } from "@/types/types";
 
 interface Contact {
   email: string;
   name?: string;
 }
 
-interface Campaign {
-  id: string;
-  name: string;
-}
-
-interface Template {
-  name: string;
-  subject: string | null;
-  content: string | null;
-}
-
 interface StartCampaignButtonProps {
   campaign: Campaign;
-  template: Template | null;
   contacts: Contact[];
   variant?: "primary" | "secondary" | "outline";
   size?: "sm" | "md" | "lg";
@@ -32,11 +21,9 @@ interface StartCampaignButtonProps {
 
 const StartCampaignButton: React.FC<StartCampaignButtonProps> = ({
   campaign,
-  template,
   contacts,
   variant = "primary",
   size = "md",
-  className = "",
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -56,14 +43,13 @@ const StartCampaignButton: React.FC<StartCampaignButtonProps> = ({
     setProgress(0);
 
     try {
-      // For demonstration purposes - using test email
-      // In production, you might want to send to all contacts
-      // Either in batches or via a backend job
+      let list: any[] = [];
+      contacts.forEach((contact) => list.push(contact.email));
 
       const response = await axios.post("/api/send_email/gmail", {
-        to: "julianmontesps4@gmail.com",
-        subject: template?.subject || "Campaign: " + campaign.name,
-        body: template?.content || "Contenido de la campaña",
+        to: list,
+        subject: campaign?.settings?.subject,
+        body: campaign?.settings?.emailBody,
       });
 
       if (response.data.success) {
@@ -113,7 +99,6 @@ const StartCampaignButton: React.FC<StartCampaignButtonProps> = ({
         ${variants[variant]}
         ${sizes[size]}
         ${isLoading ? "opacity-80 cursor-not-allowed" : ""}
-        ${className}
       `}
       aria-label="Iniciar campaña"
     >

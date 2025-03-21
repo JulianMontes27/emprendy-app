@@ -86,6 +86,7 @@ const CampaignPage = async ({
   // Fetch template details
   const template = await db
     .select({
+      id: emailTemplates.id,
       name: emailTemplates.name,
       subject: emailTemplates.subject,
       content: emailTemplates.content,
@@ -166,21 +167,25 @@ const CampaignPage = async ({
           </div>
           <StartCampaignButton
             campaign={campaignData}
-            template={templateData}
             contacts={groupedContacts.flatMap((list) => list.contacts)}
           />
         </div>
       </div>
 
+      {/* Email editing section */}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Content */}
-          <EditEmailContent campaignData={campaignData} />
+          <EditEmailContent
+            campaignData={campaignData}
+            templateData={templateData}
+          />
           {templateData && (
             <>
               <Separator />
               <Link
-                href={`/dashboard/marketing/campaigns/templates/${templateData.id}`}
+                href={`/dashboard/marketing/templates/${templateData.id}`}
                 className="group flex items-center gap-3 p-2 -mx-2 transition-all duration-300 rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/30 relative overflow-hidden"
               >
                 <div className="p-2 bg-primary-50 dark:bg-primary-900 rounded-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-sm group-hover:bg-primary-100 dark:group-hover:bg-primary-800 relative z-10">

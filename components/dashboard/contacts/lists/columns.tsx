@@ -12,16 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-
-// This type is used to define the shape of our data.
-export type List = {
-  id: string;
-  name: string;
-  description: string | null;
-  isActive: boolean | null;
-  createdAt: Date | null;
-  updatedAt: Date | null;
-};
+import { List } from "@/types/types";
 
 export const columns: ColumnDef<List>[] = [
   {

@@ -1,15 +1,20 @@
 "use client";
 
-import useModalStore from "@/hooks/use-store-modal";
 import { Button } from "@/components/ui/button";
+import useModalStore from "@/hooks/use-store-modal";
 
-const CreateContactListBtn = ({ contacts }: { contacts: any }) => {
+interface CreateContactListBtnProps {
+  contacts: any; // Replace 'any' with a proper type for better type safety
+}
+
+const CreateContactListBtn = ({ contacts }: CreateContactListBtnProps) => {
   const { onOpen } = useModalStore();
 
   return (
     <Button
       onClick={() => onOpen("create-contact-list", { contacts })}
-      className="w-full sm:w-auto bg-blue-500"
+      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+      aria-label="Create contact list"
     >
       Crear Lista
     </Button>

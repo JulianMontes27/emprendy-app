@@ -3,7 +3,6 @@ import { Server as NetServer, Socket } from "net";
 import { NextApiResponse } from "next";
 import { Server as SocketIOServer } from "socket.io";
 
-import { AdapterAccountType } from "next-auth/adapters";
 import { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import {
   users,
