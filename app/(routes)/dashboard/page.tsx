@@ -8,44 +8,38 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users,
   Clock,
   Plus,
-  FileText,
   Mail,
   Eye,
   MessageSquare,
-  Calendar,
   ArrowRight,
   Zap,
   ChevronRight,
-  BarChart3,
   ListFilter,
-  Loader2,
   Share2,
-  Target,
   AlertCircle,
+  ArrowUpRight,
+  ChevronDown,
 } from "lucide-react";
-import { DashboardMetrics } from "./_components/content";
 import getSession from "@/lib/get-session";
 import { db } from "@/db";
-
 import {
   campaigns,
   campaignsToLists,
   contacts,
   emailClicks,
-  emailMessages,
   emailOpens,
   emailTemplates,
+  emailTracking,
   lists,
 } from "@/db/schema";
-import { eq, count, desc, and, gte, lte, isNull, not } from "drizzle-orm";
+import { eq, count, desc, and, gte, lte } from "drizzle-orm";
 import { subDays, format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Campaign, User } from "@/types/types";
+import type { Campaign } from "@/types/types";
 
 type ContactStats = {
   total: number;
@@ -76,67 +70,59 @@ type ScheduledCampaign = {
   lists: string[];
 };
 
-/* Pre-rendered in the server at REQUEST time, since we need the client's personal (dynamic) data to render the HTML page in the server */
 export default async function DashboardPage() {
   const session = await getSession();
   const user = session?.user;
 
-  if (!user || !user.id) return null; // Ensures `user` is always defined
+  if (!user || !user.id) return null;
 
   async function getRecentCampaigns(): Promise<Campaign[]> {
-    if (!user) throw new Error("User is undefined"); // Additional safety check
+    if (!user) throw new Error("User is undefined");
 
     const thirtyDaysAgo = subDays(new Date(), 30);
 
     const campaignData = await db
-      .select({})
+      .select({
+        id: campaigns.id,
+        name: campaigns.name,
+        status: campaigns.status,
+        sentAt: campaigns.sentAt,
+        createdAt: campaigns.createdAt,
+      })
       .from(campaigns)
       .where(
         and(
-          eq(campaigns.createdById, user.id), // No TypeScript error anymore
+          eq(campaigns.createdById, user.id!),
           gte(campaigns.createdAt, thirtyDaysAgo)
         )
       )
       .orderBy(desc(campaigns.createdAt))
       .limit(4);
 
-    // Fetch metrics
     const enrichedCampaigns = await Promise.all(
-      campaignData.map(async (campaign: any) => {
+      campaignData.map(async (campaign) => {
         const sentCount = await db
           .select({ count: count() })
-          .from(emailMessages)
-          .where(eq(emailMessages.campaignId, campaign.id))
-          .execute()
-          .then((result: any) => result[0]?.count || 0);
+          .from(emailTracking)
+          .where(eq(emailTracking.campaignId, campaign.id))
+          .then((result) => result[0]?.count || 0);
 
         const openCount = await db
           .select({ count: count() })
-          .from(emailMessages)
-          .leftJoin(emailOpens, eq(emailOpens.messageId, emailMessages.id))
-          .where(
-            and(
-              eq(emailMessages.campaignId, campaign.id),
-              not(isNull(emailMessages.openedAt))
-            )
-          )
-          .execute()
+          .from(emailOpens)
+          .innerJoin(emailTracking, eq(emailOpens.emailId, emailTracking.id))
+          .where(eq(emailTracking.campaignId, campaign.id))
           .then((result) => result[0]?.count || 0);
 
-        const replyCount = await db
+        const clickCount = await db
           .select({ count: count() })
-          .from(emailMessages)
-          .where(
-            and(
-              eq(emailMessages.campaignId, campaign.id),
-              not(isNull(emailMessages.clickedAt))
-            )
-          )
-          .execute()
+          .from(emailClicks)
+          .innerJoin(emailTracking, eq(emailClicks.emailId, emailTracking.id))
+          .where(eq(emailTracking.campaignId, campaign.id))
           .then((result) => result[0]?.count || 0);
 
         const openRate = sentCount > 0 ? (openCount / sentCount) * 100 : 0;
-        const replyRate = sentCount > 0 ? (replyCount / sentCount) * 100 : 0;
+        const replyRate = sentCount > 0 ? (clickCount / sentCount) * 100 : 0;
 
         return {
           ...campaign,
@@ -151,15 +137,14 @@ export default async function DashboardPage() {
   }
 
   async function getContactStats(): Promise<ContactStats> {
-    if (!user) throw new Error("User is undefined"); // Additional safety check
+    if (!user) throw new Error("User is undefined");
 
     const thirtyDaysAgo = subDays(new Date(), 30);
 
     const totalContacts = await db
       .select({ count: count() })
       .from(contacts)
-      .where(eq(contacts.userId, user.id))
-      .execute()
+      .where(eq(contacts.userId, user.id!))
       .then((result) => result[0]?.count || 0);
 
     const newContacts = await db
@@ -167,40 +152,29 @@ export default async function DashboardPage() {
       .from(contacts)
       .where(
         and(
-          eq(contacts.userId, user.id),
+          eq(contacts.userId, user.id!),
           gte(contacts.createdAt, thirtyDaysAgo)
         )
       )
-      .execute()
       .then((result) => result[0]?.count || 0);
 
     const listCount = await db
       .select({ count: count() })
       .from(lists)
-      .where(eq(lists.createdById, user.id))
-      .execute()
+      .where(eq(lists.createdById, user.id!))
       .then((result) => result[0]?.count || 0);
 
-    // Calculate response rate from all campaigns
     const messageCount = await db
       .select({ count: count() })
-      .from(emailMessages)
-      .innerJoin(campaigns, eq(emailMessages.campaignId, campaigns.id))
-      .where(eq(campaigns.createdById, user.id))
-      .execute()
+      .from(emailTracking)
+      .where(eq(emailTracking.userId, user.id!))
       .then((result) => result[0]?.count || 0);
 
     const responseCount = await db
       .select({ count: count() })
-      .from(emailMessages)
-      .innerJoin(campaigns, eq(emailMessages.campaignId, campaigns.id))
-      .where(
-        and(
-          eq(campaigns.createdById, user.id),
-          not(isNull(emailMessages.clickedAt))
-        )
-      )
-      .execute()
+      .from(emailClicks)
+      .innerJoin(emailTracking, eq(emailClicks.emailId, emailTracking.id))
+      .where(eq(emailTracking.userId, user.id!))
       .then((result) => result[0]?.count || 0);
 
     const responseRate =
@@ -215,7 +189,7 @@ export default async function DashboardPage() {
   }
 
   async function getNextCampaign(): Promise<NextCampaign | null> {
-    if (!user) throw new Error("User is undefined"); // Additional safety check
+    if (!user) throw new Error("User is undefined");
 
     const now = new Date();
 
@@ -228,25 +202,22 @@ export default async function DashboardPage() {
       .from(campaigns)
       .where(
         and(
-          eq(campaigns.createdById, user.id),
+          eq(campaigns.createdById, user.id!),
           eq(campaigns.status, "programada"),
           gte(campaigns.scheduledAt, now)
         )
       )
       .orderBy(campaigns.scheduledAt)
-      .limit(1)
-      .execute();
+      .limit(1);
 
     if (nextCampaignData.length === 0) return null;
 
     const campaign = nextCampaignData[0];
 
-    // Get contact count for this campaign
     const contactCount = await db
       .select({ count: count() })
-      .from(emailMessages)
-      .where(eq(emailMessages.campaignId, campaign.id))
-      .execute()
+      .from(emailTracking)
+      .where(eq(emailTracking.campaignId, campaign.id)) // Fix: Use campaignId
       .then((result) => result[0]?.count || 0);
 
     return {
@@ -258,7 +229,7 @@ export default async function DashboardPage() {
   }
 
   async function getScheduledCampaigns(): Promise<ScheduledCampaign[]> {
-    if (!user) throw new Error("User is undefined"); // Additional safety check
+    if (!user) throw new Error("User is undefined");
 
     const now = new Date();
 
@@ -272,41 +243,33 @@ export default async function DashboardPage() {
       .from(campaigns)
       .where(
         and(
-          eq(campaigns.createdById, user.id),
+          eq(campaigns.createdById, user.id!),
           eq(campaigns.status, "programada"),
           gte(campaigns.scheduledAt, now)
         )
       )
       .orderBy(campaigns.scheduledAt)
-      .limit(3)
-      .execute();
+      .limit(3);
 
     const enrichedCampaigns = await Promise.all(
       scheduledCampaignsData.map(async (campaign) => {
-        // Get template name
         const templateData = await db
           .select({ name: emailTemplates.name })
           .from(emailTemplates)
           .where(eq(emailTemplates.id, campaign.templateId))
-          .execute();
+          .then((result) => result[0]?.name || "Plantilla sin nombre");
 
-        const templateName = templateData[0]?.name || "Plantilla sin nombre";
-
-        // Get recipients count
         const recipientsCount = await db
           .select({ count: count() })
-          .from(emailMessages)
-          .where(eq(emailMessages.campaignId, campaign.id))
-          .execute()
+          .from(emailTracking)
+          .where(eq(emailTracking.campaignId, campaign.id)) // Fix: Use campaignId
           .then((result) => result[0]?.count || 0);
 
-        // Get list names
         const listsData = await db
           .select({ name: lists.name })
           .from(lists)
           .innerJoin(campaignsToLists, eq(campaignsToLists.listId, lists.id))
-          .where(eq(campaignsToLists.campaignId, campaign.id))
-          .execute();
+          .where(eq(campaignsToLists.campaignId, campaign.id));
 
         const listNames = listsData.map((list) => list.name);
 
@@ -315,7 +278,7 @@ export default async function DashboardPage() {
           name: campaign.name,
           scheduledAt: campaign.scheduledAt!,
           recipients: recipientsCount,
-          template: templateName,
+          template: templateData,
           lists: listNames,
         };
       })
@@ -329,55 +292,49 @@ export default async function DashboardPage() {
     clickRate: MetricStat;
     responseRate: MetricStat;
   }> {
-    if (!user) throw new Error("User is undefined"); // Additional safety check
+    if (!user) throw new Error("User is undefined");
 
     const thirtyDaysAgo = subDays(new Date(), 30);
     const sixtyDaysAgo = subDays(new Date(), 60);
 
-    // Current period metrics
     const currentPeriodMetrics = await db
       .select({
-        totalMessages: count(emailMessages.id),
+        totalMessages: count(emailTracking.id),
         openedMessages: count(emailOpens.id),
         clickedMessages: count(emailClicks.id),
       })
-      .from(emailMessages)
-      .leftJoin(campaigns, eq(emailMessages.campaignId, campaigns.id))
-      .leftJoin(emailOpens, eq(emailOpens.messageId, emailMessages.id))
-      .leftJoin(emailClicks, eq(emailClicks.messageId, emailMessages.id))
+      .from(emailTracking)
+      .leftJoin(emailOpens, eq(emailOpens.emailId, emailTracking.id))
+      .leftJoin(emailClicks, eq(emailClicks.emailId, emailTracking.id))
       .where(
         and(
-          eq(campaigns.createdById, user.id),
-          gte(emailMessages.sentAt, thirtyDaysAgo),
-          lte(emailMessages.sentAt, new Date())
+          eq(emailTracking.userId, user.id),
+          gte(emailTracking.sentAt, thirtyDaysAgo)
         )
       )
-      .execute();
+      .then((result) => result[0]);
 
-    // Previous period metrics
     const previousPeriodMetrics = await db
       .select({
-        totalMessages: count(emailMessages.id),
+        totalMessages: count(emailTracking.id),
         openedMessages: count(emailOpens.id),
         clickedMessages: count(emailClicks.id),
       })
-      .from(emailMessages)
-      .leftJoin(campaigns, eq(emailMessages.campaignId, campaigns.id))
-      .leftJoin(emailOpens, eq(emailOpens.messageId, emailMessages.id))
-      .leftJoin(emailClicks, eq(emailClicks.messageId, emailMessages.id))
+      .from(emailTracking)
+      .leftJoin(emailOpens, eq(emailOpens.emailId, emailTracking.id))
+      .leftJoin(emailClicks, eq(emailClicks.emailId, emailTracking.id))
       .where(
         and(
-          eq(campaigns.createdById, user.id),
-          gte(emailMessages.sentAt, sixtyDaysAgo),
-          lte(emailMessages.sentAt, thirtyDaysAgo)
+          eq(emailTracking.userId, user.id),
+          gte(emailTracking.sentAt, sixtyDaysAgo),
+          lte(emailTracking.sentAt, thirtyDaysAgo)
         )
       )
-      .execute();
+      .then((result) => result[0]);
 
-    const current = currentPeriodMetrics[0];
-    const previous = previousPeriodMetrics[0];
+    const current = currentPeriodMetrics;
+    const previous = previousPeriodMetrics;
 
-    // Calculate rates
     const currentOpenRate =
       current.totalMessages > 0
         ? (current.openedMessages / current.totalMessages) * 100
@@ -408,7 +365,6 @@ export default async function DashboardPage() {
         ? ((currentClickRate - previousClickRate) / previousClickRate) * 100
         : 0;
 
-    // Calculate response rate (using clicks as proxy)
     const responseRate = currentClickRate;
     const previousResponseRate = previousClickRate;
     const responseRateChange =
@@ -441,7 +397,7 @@ export default async function DashboardPage() {
     scheduled: number;
     completed: number;
   }> {
-    if (!user) throw new Error("User is undefined"); // Additional safety check
+    if (!user) throw new Error("User is undefined");
 
     const thirtyDaysAgo = subDays(new Date(), 30);
 
@@ -454,7 +410,6 @@ export default async function DashboardPage() {
           gte(campaigns.createdAt, thirtyDaysAgo)
         )
       )
-      .execute()
       .then((result) => result[0]?.count || 0);
 
     const activeCampaigns = await db
@@ -463,7 +418,6 @@ export default async function DashboardPage() {
       .where(
         and(eq(campaigns.createdById, user.id), eq(campaigns.status, "activa"))
       )
-      .execute()
       .then((result) => result[0]?.count || 0);
 
     const scheduledCampaigns = await db
@@ -475,7 +429,6 @@ export default async function DashboardPage() {
           eq(campaigns.status, "programada")
         )
       )
-      .execute()
       .then((result) => result[0]?.count || 0);
 
     const completedCampaigns = await db
@@ -488,7 +441,6 @@ export default async function DashboardPage() {
           gte(campaigns.completedAt, thirtyDaysAgo)
         )
       )
-      .execute()
       .then((result) => result[0]?.count || 0);
 
     return {
@@ -499,7 +451,6 @@ export default async function DashboardPage() {
     };
   }
 
-  // Fetch data
   const recentCampaigns = await getRecentCampaigns();
   const contactStats = await getContactStats();
   const nextCampaign = await getNextCampaign();
@@ -507,692 +458,579 @@ export default async function DashboardPage() {
   const performanceMetrics = await getPerformanceMetrics();
   const campaignStats = await getCampaignStats();
 
+  // Completely redesigned layout with sidebar navigation
   return (
-    <div className="container mx-auto max-w-7xl space-y-8 py-6">
-      {/* Header with welcome and quick actions */}
-      <div className="flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Bienvenido, {user.name || "Usuario"}
-          </h1>
-          <p className="text-muted-foreground">
-            Gestiona tus campañas y monitorea el rendimiento
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Nueva Campaña
-          </Button>
-          <Button variant="outline" size="icon">
-            <FileText className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon">
-            <Users className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon">
-            <Calendar className="h-4 w-4" />
-          </Button>
-        </div>
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-950">
+      {/* Mobile sidebar */}
+      <div className="md:hidden">
+        {/* Mobile sidebar would go here - simplified for this example */}
       </div>
+      {/* Main content */}
+      <main className="flex-1 overflow-auto">
+        {/* Dashboard content */}
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Page header */}
+          <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
+                Dashboard
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Monitorea el rendimiento de tus campañas de email marketing
+              </p>
+            </div>
 
-      {/* Key Metrics Overview */}
-      <DashboardMetrics />
+            <div className="flex items-center gap-3">
+              <Button className="gap-2 bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700">
+                <Plus className="h-4 w-4" />
+                Nueva Campaña
+              </Button>
+            </div>
+          </div>
 
-      {/* Main Content Area */}
-      <Tabs defaultValue="campaigns" className="w-full">
-        <TabsList className="mb-6 w-full justify-start space-x-4 border-b bg-transparent p-0">
-          <TabsTrigger
-            value="campaigns"
-            className="border-b-2 border-transparent px-0 pb-3 pt-0 data-[state=active]:border-primary data-[state=active]:bg-transparent"
-          >
-            Campañas
-          </TabsTrigger>
-          <TabsTrigger
-            value="schedule"
-            className="border-b-2 border-transparent px-0 pb-3 pt-0 data-[state=active]:border-primary data-[state=active]:bg-transparent"
-          >
-            Programación
-          </TabsTrigger>
-          <TabsTrigger
-            value="performance"
-            className="border-b-2 border-transparent px-0 pb-3 pt-0 data-[state=active]:border-primary data-[state=active]:bg-transparent"
-          >
-            Rendimiento
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Campaigns Tab */}
-        <TabsContent value="campaigns" className="space-y-8">
-          {/* Stats Cards */}
-          <div className="grid gap-6 md:grid-cols-3">
-            {/* Campaign Stats Card */}
-            <Card className="overflow-hidden border-none bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm dark:from-blue-950/20 dark:to-indigo-950/20">
-              <CardHeader className="pb-2">
+          {/* Key metrics */}
+          <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
-                    Resumen de Campañas
-                  </CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
-                      {campaignStats.total}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Últimos 30 días
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                      Campañas Activas
+                    </p>
+                    <h3 className="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
                       {campaignStats.active}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Activas
-                    </span>
+                    </h3>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
-                      {campaignStats.scheduled}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Programadas
-                    </span>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400">
+                    <Mail className="h-6 w-6" />
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
-                      {campaignStats.completed}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Completadas
-                    </span>
-                  </div>
+                </div>
+                <div className="mt-4 flex items-center text-sm">
+                  <span className="flex items-center text-emerald-500 dark:text-emerald-400">
+                    <ArrowUpRight className="mr-1 h-3 w-3" />
+                    12%
+                  </span>
+                  <span className="ml-2 text-slate-500 dark:text-slate-400">
+                    vs. mes anterior
+                  </span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Contact Stats Card */}
-            <Card className="overflow-hidden border-none bg-gradient-to-br from-green-50 to-emerald-50 shadow-sm dark:from-green-950/20 dark:to-emerald-950/20">
-              <CardHeader className="pb-2">
+            <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
-                    Contactos
-                  </CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                      Tasa de Apertura
+                    </p>
+                    <h3 className="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
+                      {performanceMetrics.openRate.value}%
+                    </h3>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                    <Eye className="h-6 w-6" />
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
+                <div className="mt-4 flex items-center text-sm">
+                  <span
+                    className={`flex items-center ${
+                      performanceMetrics.openRate.trend === "up"
+                        ? "text-emerald-500 dark:text-emerald-400"
+                        : "text-rose-500 dark:text-rose-400"
+                    }`}
+                  >
+                    {performanceMetrics.openRate.trend === "up" ? (
+                      <ArrowUpRight className="mr-1 h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="mr-1 h-3 w-3" />
+                    )}
+                    {Math.abs(performanceMetrics.openRate.change)}%
+                  </span>
+                  <span className="ml-2 text-slate-500 dark:text-slate-400">
+                    vs. mes anterior
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                      Tasa de Respuesta
+                    </p>
+                    <h3 className="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
+                      {performanceMetrics.responseRate.value}%
+                    </h3>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
+                    <MessageSquare className="h-6 w-6" />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center text-sm">
+                  <span
+                    className={`flex items-center ${
+                      performanceMetrics.responseRate.trend === "up"
+                        ? "text-emerald-500 dark:text-emerald-400"
+                        : "text-rose-500 dark:text-rose-400"
+                    }`}
+                  >
+                    {performanceMetrics.responseRate.trend === "up" ? (
+                      <ArrowUpRight className="mr-1 h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="mr-1 h-3 w-3" />
+                    )}
+                    {Math.abs(performanceMetrics.responseRate.change)}%
+                  </span>
+                  <span className="ml-2 text-slate-500 dark:text-slate-400">
+                    vs. mes anterior
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                      Total Contactos
+                    </p>
+                    <h3 className="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
                       {contactStats.total.toLocaleString()}
-                    </span>
-                    <span className="text-sm text-muted-foreground">Total</span>
+                    </h3>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
-                      {contactStats.newCount}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Nuevos
-                    </span>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
+                    <Users className="h-6 w-6" />
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
-                      {contactStats.listCount}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Listas
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-3xl font-bold">
-                      {contactStats.responseRate.toFixed(1)}%
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Tasa respuesta
-                    </span>
-                  </div>
+                </div>
+                <div className="mt-4 flex items-center text-sm">
+                  <span className="flex items-center text-emerald-500 dark:text-emerald-400">
+                    <ArrowUpRight className="mr-1 h-3 w-3" />
+                    {contactStats.newCount}
+                  </span>
+                  <span className="ml-2 text-slate-500 dark:text-slate-400">
+                    nuevos este mes
+                  </span>
                 </div>
               </CardContent>
             </Card>
+          </div>
 
-            {/* Next Campaign Card */}
-            <Card className="overflow-hidden border-none bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm dark:from-amber-950/20 dark:to-orange-950/20">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
+          {/* Main content grid */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Recent campaigns - takes 2 columns on large screens */}
+            <div className="lg:col-span-2">
+              <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
+                      Campañas recientes
+                    </CardTitle>
+                    <CardDescription>
+                      Monitorea el rendimiento de tus últimas campañas
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/50 dark:hover:text-indigo-300"
+                  >
+                    Ver todas
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {recentCampaigns.length > 0 ? (
+                    <div className="space-y-4">
+                      {recentCampaigns.map((campaign, i) => (
+                        <div
+                          key={i}
+                          className="group rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-indigo-200 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-900/50"
+                        >
+                          <div className="mb-3 flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-slate-900 dark:text-white">
+                                  {campaign.name}
+                                </h4>
+                                <Badge
+                                  variant={
+                                    campaign.status === "activa"
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                  className="bg-indigo-100 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                                >
+                                  {campaign.status}
+                                </Badge>
+                              </div>
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                {campaign.sentAt
+                                  ? format(campaign.sentAt, "d MMM yyyy", {
+                                      locale: es,
+                                    })
+                                  : "No enviada"}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full text-slate-400 opacity-0 transition-opacity hover:text-slate-900 group-hover:opacity-100 dark:text-slate-500 dark:hover:text-slate-300"
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          <div className="mb-3 grid grid-cols-3 gap-4 text-sm">
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                                <Mail className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                                <span>Enviados</span>
+                              </div>
+                              <span className="text-lg font-medium text-slate-900 dark:text-white">
+                                {campaign.totalSent}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                                <Eye className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                                <span>Abiertos</span>
+                              </div>
+                              <span className="text-lg font-medium text-slate-900 dark:text-white">
+                                {campaign.openRate.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                                <MessageSquare className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                                <span>Respuestas</span>
+                              </div>
+                              <span className="text-lg font-medium text-slate-900 dark:text-white">
+                                {campaign.replyRate.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+
+                          <Progress
+                            value={
+                              campaign.status === "completada"
+                                ? 100
+                                : campaign.status === "activa"
+                                ? 45
+                                : 0
+                            }
+                            className="h-1.5 bg-slate-100 dark:bg-slate-800"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 py-12 text-center dark:border-slate-800">
+                      <Mail className="mb-2 h-12 w-12 text-slate-300 dark:text-slate-700" />
+                      <h3 className="text-lg font-medium text-slate-900 dark:text-white">
+                        No hay campañas recientes
+                      </h3>
+                      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        Crea tu primera campaña para comenzar a enviar emails a
+                        tus contactos
+                      </p>
+                      <Button className="mt-4 gap-2 bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700">
+                        <Plus className="h-4 w-4" />
+                        Nueva Campaña
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Performance metrics */}
+              <Card className="mt-6 border-none bg-white shadow-sm dark:bg-slate-900">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
+                      Rendimiento
+                    </CardTitle>
+                    <CardDescription>
+                      Análisis de métricas clave
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <ListFilter className="h-4 w-4" />
+                      Filtrar
+                    </Button>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Share2 className="h-4 w-4" />
+                      Exportar
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <div className="mb-2 flex items-center gap-2">
+                        <Eye className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+                        <h3 className="font-medium text-slate-900 dark:text-white">
+                          Tasa de apertura
+                        </h3>
+                      </div>
+                      <div className="mt-2 flex items-end justify-between">
+                        <span className="text-3xl font-bold text-slate-900 dark:text-white">
+                          {performanceMetrics.openRate.value}%
+                        </span>
+                        <span
+                          className={`flex items-center text-sm font-medium ${
+                            performanceMetrics.openRate.trend === "up"
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "text-rose-500 dark:text-rose-400"
+                          }`}
+                        >
+                          {performanceMetrics.openRate.trend === "up" ? (
+                            <ArrowUpRight className="mr-1 h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="mr-1 h-3 w-3" />
+                          )}
+                          {Math.abs(performanceMetrics.openRate.change)}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={performanceMetrics.openRate.value}
+                        className="mt-3 h-1.5 bg-slate-200 dark:bg-slate-700"
+                      />
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <div className="mb-2 flex items-center gap-2">
+                        <Zap className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+                        <h3 className="font-medium text-slate-900 dark:text-white">
+                          Tasa de clics
+                        </h3>
+                      </div>
+                      <div className="mt-2 flex items-end justify-between">
+                        <span className="text-3xl font-bold text-slate-900 dark:text-white">
+                          {performanceMetrics.clickRate.value}%
+                        </span>
+                        <span
+                          className={`flex items-center text-sm font-medium ${
+                            performanceMetrics.clickRate.trend === "up"
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "text-rose-500 dark:text-rose-400"
+                          }`}
+                        >
+                          {performanceMetrics.clickRate.trend === "up" ? (
+                            <ArrowUpRight className="mr-1 h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="mr-1 h-3 w-3" />
+                          )}
+                          {Math.abs(performanceMetrics.clickRate.change)}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={performanceMetrics.clickRate.value}
+                        className="mt-3 h-1.5 bg-slate-200 dark:bg-slate-700"
+                      />
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <div className="mb-2 flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 text-violet-500 dark:text-violet-400" />
+                        <h3 className="font-medium text-slate-900 dark:text-white">
+                          Tasa de respuesta
+                        </h3>
+                      </div>
+                      <div className="mt-2 flex items-end justify-between">
+                        <span className="text-3xl font-bold text-slate-900 dark:text-white">
+                          {performanceMetrics.responseRate.value}%
+                        </span>
+                        <span
+                          className={`flex items-center text-sm font-medium ${
+                            performanceMetrics.responseRate.trend === "up"
+                              ? "text-emerald-500 dark:text-emerald-400"
+                              : "text-rose-500 dark:text-rose-400"
+                          }`}
+                        >
+                          {performanceMetrics.responseRate.trend === "up" ? (
+                            <ArrowUpRight className="mr-1 h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="mr-1 h-3 w-3" />
+                          )}
+                          {Math.abs(performanceMetrics.responseRate.change)}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={performanceMetrics.responseRate.value}
+                        className="mt-3 h-1.5 bg-slate-200 dark:bg-slate-700"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right sidebar - takes 1 column */}
+            <div className="space-y-6">
+              {/* Next campaign card */}
+              <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
                     Próximo Envío
                   </CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {nextCampaign ? (
-                  <div className="flex flex-col gap-3">
-                    <h3 className="text-lg font-medium">{nextCampaign.name}</h3>
-                    <div className="space-y-1">
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="mr-2 h-4 w-4" />
-                        {format(nextCampaign.scheduledAt, "d MMM, h:mm a", {
-                          locale: es,
-                        })}
+                </CardHeader>
+                <CardContent>
+                  {nextCampaign ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-slate-900 dark:text-white">
+                          {nextCampaign.name}
+                        </h3>
+                        <Badge className="bg-indigo-100 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+                          Programada
+                        </Badge>
                       </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Users className="mr-2 h-4 w-4" />
-                        {nextCampaign.contactCount} contactos
+                      <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                        <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
+                          <Clock className="mr-2 h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                          {format(nextCampaign.scheduledAt, "d MMM, h:mm a", {
+                            locale: es,
+                          })}
+                        </div>
+                        <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
+                          <Users className="mr-2 h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                          {nextCampaign.contactCount} contactos
+                        </div>
                       </div>
+                      <Button className="mt-2 w-full bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700">
+                        Ver detalles
+                      </Button>
                     </div>
-                    <Button size="sm" className="mt-2 w-full">
-                      Ver detalles
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 py-8 text-center dark:border-slate-800">
+                      <AlertCircle className="mb-2 h-8 w-8 text-slate-300 dark:text-slate-700" />
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        No hay envíos programados
+                      </p>
+                      <Button
+                        size="sm"
+                        className="mt-4 bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700"
+                      >
+                        Programar campaña
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Campaign stats */}
+              <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
+                    Resumen de Campañas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Total
+                      </p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                        {campaignStats.total}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Últimos 30 días
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Activas
+                      </p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                        {campaignStats.active}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        En progreso
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Programadas
+                      </p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                        {campaignStats.scheduled}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Pendientes
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Completadas
+                      </p>
+                      <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                        {campaignStats.completed}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Últimos 30 días
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contact stats */}
+              <Card className="border-none bg-white shadow-sm dark:bg-slate-900">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
+                    Contactos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Total de contactos
+                      </p>
+                      <p className="text-lg font-bold text-slate-900 dark:text-white">
+                        {contactStats.total.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Nuevos contactos
+                      </p>
+                      <p className="text-lg font-bold text-slate-900 dark:text-white">
+                        {contactStats.newCount}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Listas
+                      </p>
+                      <p className="text-lg font-bold text-slate-900 dark:text-white">
+                        {contactStats.listCount}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Tasa de respuesta
+                      </p>
+                      <p className="text-lg font-bold text-slate-900 dark:text-white">
+                        {contactStats.responseRate.toFixed(1)}%
+                      </p>
+                    </div>
+                    <Button variant="outline" className="mt-2 w-full">
+                      Gestionar contactos
                     </Button>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-6 text-center">
-                    <AlertCircle className="mb-2 h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      No hay envíos programados
-                    </p>
-                    <Button size="sm" className="mt-4">
-                      Programar campaña
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-
-          {/* Recent Campaigns */}
-          <Card className="border-none shadow-sm">
-            <CardHeader className="pb-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Campañas recientes</CardTitle>
-                  <CardDescription>
-                    Monitorea el rendimiento de tus últimas campañas
-                  </CardDescription>
-                </div>
-                <Button variant="ghost" size="sm" className="gap-1">
-                  Ver todas
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="mt-4 space-y-6">
-                {recentCampaigns.length > 0 ? (
-                  recentCampaigns.map((campaign, i) => (
-                    <div
-                      key={i}
-                      className="group rounded-lg p-4 transition-colors hover:bg-muted/50"
-                    >
-                      <div className="mb-3 flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium">{campaign.name}</h4>
-                            <Badge
-                              variant={
-                                campaign.status === "activa"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs"
-                            >
-                              {campaign.status}
-                            </Badge>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {campaign.sentAt
-                              ? format(campaign.sentAt, "d MMM yyyy", {
-                                  locale: es,
-                                })
-                              : "No enviada"}
-                          </span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="opacity-0 transition-opacity group-hover:opacity-100"
-                        >
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="mb-3 grid grid-cols-3 gap-4 text-sm">
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Mail className="h-4 w-4" />
-                            <span>Enviados</span>
-                          </div>
-                          <span className="text-lg font-medium">
-                            {campaign.totalSent}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Eye className="h-4 w-4" />
-                            <span>Abiertos</span>
-                          </div>
-                          <span className="text-lg font-medium">
-                            {campaign.openRate.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <MessageSquare className="h-4 w-4" />
-                            <span>Respuestas</span>
-                          </div>
-                          <span className="text-lg font-medium">
-                            {campaign.replyRate.toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-
-                      <Progress
-                        value={
-                          campaign.status === "completada"
-                            ? 100
-                            : campaign.status === "activa"
-                            ? 45
-                            : 0
-                        }
-                        className="h-1.5"
-                      />
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Mail className="mb-2 h-12 w-12 text-muted-foreground/50" />
-                    <h3 className="text-lg font-medium">
-                      No hay campañas recientes
-                    </h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Crea tu primera campaña para comenzar a enviar emails a
-                      tus contactos
-                    </p>
-                    <Button className="mt-4 gap-2">
-                      <Plus className="h-4 w-4" />
-                      Nueva Campaña
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Engagement Card */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Estadísticas de participación</CardTitle>
-                  <CardDescription>
-                    Resumen de interacción con tus campañas
-                  </CardDescription>
-                </div>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <Share2 className="h-4 w-4" />
-                  Exportar datos
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6 md:grid-cols-3">
-                <div className="rounded-lg bg-muted/50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Target className="h-5 w-5 text-blue-500" />
-                    <h3 className="font-medium">Tasa de conversión</h3>
-                  </div>
-                  <div className="mt-2 flex items-end justify-between">
-                    <span className="text-3xl font-bold">4.2%</span>
-                    <span className="flex items-center text-sm font-medium text-green-500">
-                      <ArrowRight className="h-3 w-3 rotate-45" />
-                      +1.2%
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Porcentaje de contactos que realizaron una acción deseada
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-muted/50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-amber-500" />
-                    <h3 className="font-medium">Tasa de apertura</h3>
-                  </div>
-                  <div className="mt-2 flex items-end justify-between">
-                    <span className="text-3xl font-bold">
-                      {performanceMetrics.openRate.value}%
-                    </span>
-                    <span
-                      className={`flex items-center text-sm font-medium ${
-                        performanceMetrics.openRate.trend === "up"
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }`}
-                    >
-                      <ArrowRight
-                        className={`h-3 w-3 ${
-                          performanceMetrics.openRate.trend === "up"
-                            ? "rotate-45"
-                            : "rotate-135"
-                        }`}
-                      />
-                      {performanceMetrics.openRate.change > 0 ? "+" : ""}
-                      {performanceMetrics.openRate.change}%
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Porcentaje de emails abiertos del total enviado
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-muted/50 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5 text-green-500" />
-                    <h3 className="font-medium">Tasa de respuesta</h3>
-                  </div>
-                  <div className="mt-2 flex items-end justify-between">
-                    <span className="text-3xl font-bold">
-                      {performanceMetrics.responseRate.value}%
-                    </span>
-                    <span
-                      className={`flex items-center text-sm font-medium ${
-                        performanceMetrics.responseRate.trend === "up"
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }`}
-                    >
-                      <ArrowRight
-                        className={`h-3 w-3 ${
-                          performanceMetrics.responseRate.trend === "up"
-                            ? "rotate-45"
-                            : "rotate-135"
-                        }`}
-                      />
-                      {performanceMetrics.responseRate.change > 0 ? "+" : ""}
-                      {performanceMetrics.responseRate.change}%
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Porcentaje de emails que recibieron respuesta
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Schedule Tab */}
-        <TabsContent value="schedule" className="space-y-8">
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Campañas programadas</CardTitle>
-                  <CardDescription>
-                    Gestiona tus próximos envíos de email
-                  </CardDescription>
-                </div>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Programar campaña
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {scheduledCampaigns.length > 0 ? (
-                <div className="space-y-4">
-                  {scheduledCampaigns.map((campaign, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="space-y-1">
-                        <h4 className="font-medium">{campaign.name}</h4>
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {format(campaign.scheduledAt, "d MMM, h:mm a", {
-                              locale: es,
-                            })}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            {campaign.recipients} <Users className="h-4 w-4" />
-                            {campaign.recipients} contactos
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <FileText className="h-4 w-4" />
-                            {campaign.template}
-                          </div>
-                        </div>
-                        {campaign.lists.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {campaign.lists.map((list, j) => (
-                              <Badge
-                                key={j}
-                                variant="outline"
-                                className="text-xs"
-                              >
-                                {list}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 self-end sm:self-center">
-                        <Button variant="outline" size="sm">
-                          Editar
-                        </Button>
-                        <Button variant="destructive" size="sm">
-                          Cancelar
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Calendar className="mb-2 h-12 w-12 text-muted-foreground/50" />
-                  <h3 className="text-lg font-medium">
-                    No hay campañas programadas
-                  </h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Programa tu primera campaña para comenzar a enviar emails a
-                    tus contactos
-                  </p>
-                  <Button className="mt-4 gap-2">
-                    <Plus className="h-4 w-4" />
-                    Programar campaña
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Performance Tab */}
-        <TabsContent value="performance" className="space-y-8">
-          <div className="grid gap-6 md:grid-cols-3">
-            <Card className="border-none shadow-sm">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
-                    Tasa de apertura
-                  </CardTitle>
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col">
-                  <div className="flex items-end justify-between">
-                    <span className="text-3xl font-bold">
-                      {performanceMetrics.openRate.value}%
-                    </span>
-                    <span
-                      className={`flex items-center text-sm font-medium ${
-                        performanceMetrics.openRate.trend === "up"
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }`}
-                    >
-                      <ArrowRight
-                        className={`h-3 w-3 ${
-                          performanceMetrics.openRate.trend === "up"
-                            ? "rotate-45"
-                            : "rotate-135"
-                        }`}
-                      />
-                      {performanceMetrics.openRate.change > 0 ? "+" : ""}
-                      {performanceMetrics.openRate.change}%
-                    </span>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    vs. periodo anterior
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <Progress
-                    value={performanceMetrics.openRate.value}
-                    className="h-2"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
-                    Tasa de clics
-                  </CardTitle>
-                  <Zap className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col">
-                  <div className="flex items-end justify-between">
-                    <span className="text-3xl font-bold">
-                      {performanceMetrics.clickRate.value}%
-                    </span>
-                    <span
-                      className={`flex items-center text-sm font-medium ${
-                        performanceMetrics.clickRate.trend === "up"
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }`}
-                    >
-                      <ArrowRight
-                        className={`h-3 w-3 ${
-                          performanceMetrics.clickRate.trend === "up"
-                            ? "rotate-45"
-                            : "rotate-135"
-                        }`}
-                      />
-                      {performanceMetrics.clickRate.change > 0 ? "+" : ""}
-                      {performanceMetrics.clickRate.change}%
-                    </span>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    vs. periodo anterior
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <Progress
-                    value={performanceMetrics.clickRate.value}
-                    className="h-2"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-medium">
-                    Tasa de respuesta
-                  </CardTitle>
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col">
-                  <div className="flex items-end justify-between">
-                    <span className="text-3xl font-bold">
-                      {performanceMetrics.responseRate.value}%
-                    </span>
-                    <span
-                      className={`flex items-center text-sm font-medium ${
-                        performanceMetrics.responseRate.trend === "up"
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }`}
-                    >
-                      <ArrowRight
-                        className={`h-3 w-3 ${
-                          performanceMetrics.responseRate.trend === "up"
-                            ? "rotate-45"
-                            : "rotate-135"
-                        }`}
-                      />
-                      {performanceMetrics.responseRate.change > 0 ? "+" : ""}
-                      {performanceMetrics.responseRate.change}%
-                    </span>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    vs. periodo anterior
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <Progress
-                    value={performanceMetrics.responseRate.value}
-                    className="h-2"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Análisis detallado</CardTitle>
-                  <CardDescription>
-                    Métricas avanzadas de rendimiento de tus campañas
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <ListFilter className="h-4 w-4" />
-                    Filtrar
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Share2 className="h-4 w-4" />
-                    Exportar
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center text-center">
-                  <Loader2 className="mb-4 h-10 w-10 animate-spin text-muted-foreground/70" />
-                  <h3 className="text-lg font-medium">Generando análisis</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Estamos procesando tus datos para generar un análisis
-                    detallado
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </main>
     </div>
   );
 }

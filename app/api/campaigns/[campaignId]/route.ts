@@ -1,73 +1,37 @@
 import { NextResponse } from "next/server";
-import { db } from "@/db"; // Adjust the import based on your Drizzle setup
-import { campaigns } from "@/db/schema"; // Adjust the import based on your schema location
+import { db } from "@/db";
+import { campaigns } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { auth } from "@/auth";
 
-// API route for updating campaign data
-export async function POST(
-  request: Request,
+export async function PUT(
+  req: Request,
   { params }: { params: { campaignId: string } }
 ) {
+  const session = await auth();
+  const user = session?.user;
+
+  if (!user || !user.id) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   try {
-    const { campaignId } = params;
-
-    // Parse the incoming JSON data
-    const body = await request.json();
-    console.log("Received update data:", body);
-
-    // Extract fields from the request body
-    const { subject, emailBody } = body;
-
-    // Fetch the existing campaign to get the current settings
-    const existingCampaign = await db
-      .select()
-      .from(campaigns)
-      .where(eq(campaigns.id, campaignId))
-      .limit(1);
-
-    if (!existingCampaign.length) {
-      return NextResponse.json(
-        { error: "Campaign not found" },
-        { status: 404 }
-      );
-    }
-
-    const currentSettings = existingCampaign[0].settings || {};
-
-    // Prepare the updated settings object
-    const updatedSettings = {
-      ...currentSettings, // Preserve existing settings
-      subject, // Update subject
-      emailBody, // Update email body
-    };
+    const { subject, emailBody } = await req.json();
 
     // Update the campaign in the database
-    const updatedCampaign = await db
+    await db
       .update(campaigns)
       .set({
-        settings: updatedSettings, // Update the settings JSON field
-        updatedAt: new Date(), // Update the timestamp
+        settings: {
+          subject,
+          emailBody,
+        },
       })
-      .where(eq(campaigns.id, campaignId))
-      .returning(); // Return the updated campaign
+      .where(eq(campaigns.id, params.campaignId));
 
-    console.log("Updated campaign:", updatedCampaign);
-
-    // Return a success response
-    return NextResponse.json(
-      {
-        message: "Campaign updated successfully",
-        campaign: updatedCampaign[0], // Return the first (and only) updated campaign
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: "Campaign updated successfully" });
   } catch (error) {
     console.error("Error updating campaign:", error);
-
-    // Return an error response
-    return NextResponse.json(
-      { error: "Failed to update campaign" },
-      { status: 500 }
-    );
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

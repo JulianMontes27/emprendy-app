@@ -25,6 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Mail, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 // Define the schema for the form
 const formSchema = z.object({
@@ -45,35 +46,47 @@ interface EmailBlock {
   content: string;
 }
 
-const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
-  // handle stateful variables
+const EditEmailContent = ({
+  campaignData,
+  templateData,
+}: {
+  campaignData: any;
+  templateData: any;
+}) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [templateBlocks, setTemplateBlocks] = useState<EmailBlock[]>([]);
 
   const router = useRouter();
 
-  // Parse the template content
-  const [templateBlocks, setTemplateBlocks] = useState<EmailBlock[]>([]);
+  // Initialize the form
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      subject: campaignData?.settings?.subject || templateData?.subject || "",
+    },
+  });
 
+  // Parse the template content when the component mounts
   useEffect(() => {
-    if (campaignData && campaignData.settings.emailBody) {
+    if (campaignData?.settings?.emailBody) {
       try {
         const parsedContent = JSON.parse(campaignData.settings.emailBody);
+        setTemplateBlocks(parsedContent);
+      } catch (error) {
+        console.error("Error parsing campaign email body:", error);
+        setTemplateBlocks([]);
+      }
+    } else if (templateData?.content) {
+      try {
+        const parsedContent = JSON.parse(templateData.content);
         setTemplateBlocks(parsedContent);
       } catch (error) {
         console.error("Error parsing template content:", error);
         setTemplateBlocks([]);
       }
     }
-  }, [campaignData]);
-
-  // Initialize the form
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      subject: campaignData?.settings?.subject || "",
-    },
-  });
+  }, [campaignData, templateData]);
 
   // Handle updating block content
   const updateBlockContent = (id: string, newContent: string) => {
@@ -89,14 +102,16 @@ const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
     setIsSubmitting(true);
 
     try {
-      const updatedContent = JSON.stringify(templateBlocks); // convert to JSON to comply with the database schema
-      await axios.post(`/api/campaigns/${campaignData.id}`, {
-        ...values,
+      const updatedContent = JSON.stringify(templateBlocks); // Convert blocks to JSON
+      await axios.put(`/api/campaigns/${campaignData.id}`, {
+        subject: values.subject,
         emailBody: updatedContent,
       });
       router.refresh();
+      toast.success("Email content updated successfully!");
     } catch (error) {
       console.error("Error saving email content:", error);
+      toast.error("Failed to update email content. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -115,6 +130,7 @@ const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
     const handleClick = () => {
       if (!isPreviewMode) {
         setEditing(true);
+        setContent(block.content); // Reset content to the original value when editing starts
       }
     };
 
@@ -208,9 +224,32 @@ const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
   return (
     <Card className="overflow-hidden border-border/40 shadow-sm transition-all duration-200 hover:shadow-md">
       <CardHeader className="bg-gray-50 dark:bg-gray-900 border-b">
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <Mail className="h-5 w-5 text-primary" />
-          Editar Contenido del Email
+        <CardTitle className="items-center gap-2 text-xl flex sm:flex-row justify-between flex-col">
+          <div className="flex flex-row items-center gap-2">
+            <Mail className="h-5 w-5 text-primary" />
+            Editar Contenido del Email
+          </div>
+
+          <div className="flex justify-end gap-2 mb-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsPreviewMode(!isPreviewMode)}
+              className="gap-2"
+            >
+              {isPreviewMode ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  Salir de Vista Previa
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  Vista Previa
+                </>
+              )}
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6 pt-8">
@@ -237,27 +276,6 @@ const EditEmailContent = ({ campaignData }: { campaignData: any }) => {
             />
 
             <Separator className="my-6" />
-
-            <div className="flex justify-end gap-2 mb-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsPreviewMode(!isPreviewMode)}
-                className="gap-2"
-              >
-                {isPreviewMode ? (
-                  <>
-                    <EyeOff className="h-4 w-4" />
-                    Salir de Vista Previa
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    Vista Previa
-                  </>
-                )}
-              </Button>
-            </div>
 
             <div
               className={`space-y-4 email-content-container ${

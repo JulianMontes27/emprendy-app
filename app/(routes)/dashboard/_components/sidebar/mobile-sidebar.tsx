@@ -50,7 +50,7 @@ export const MobileSidebar = async ({ routes }: { routes: RouteList }) => {
           {/* Footer (User Button and Theme Toggle) */}
           <div className="p-6 border-t border-gray-200 dark:border-slate-800">
             <div className="flex items-center justify-between">
-              <UserButton userId={user.id!} />
+              <UserButton />
               <ModeToggle />
             </div>
           </div>

@@ -79,6 +79,7 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                 contactLists: contactLists,
               })
             }
+            variant={"outline"}
             className="flex items-center"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -145,6 +146,14 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Campañas recientes</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpen("create-campaign")}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Crear Campaña
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -208,7 +217,7 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                               )
                             }
                           >
-                            Editar <ArrowUpRight className="h-4 w-4" />
+                            Ir a campaña <ArrowUpRight className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -232,7 +241,7 @@ const MarketingPageClient: React.FC<MarketingPageClientProps> = ({
                   onClick={() => onOpen("create-template")}
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Crear
+                  Crear Plantilla
                 </Button>
               </div>
             </CardHeader>

@@ -6,7 +6,14 @@ import useModalStore from "@/hooks/use-store-modal";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { CalendarIcon, LucideMailPlus, Send, Clock } from "lucide-react";
+import {
+  CalendarIcon,
+  MailPlus,
+  Send,
+  Clock,
+  ChevronRight,
+  ChevronLeft,
+} from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -116,6 +123,7 @@ export default function CreateCampaignModal() {
       setActiveTab("schedule");
     }
   };
+
   // Check if the current tab is valid before advancing
   const isCurrentTabValid = () => {
     if (activeTab === "details") {
@@ -141,46 +149,66 @@ export default function CreateCampaignModal() {
       onOpenChange={onClose}
     >
       <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-2 bg-gradient-to-r from-blue-600 to-purple-600">
-          <DialogTitle className="text-center text-xl font-bold text-white flex items-center justify-center">
-            <LucideMailPlus className="mr-2 h-5 w-5" />
+        <DialogHeader className="p-6 pb-2 bg-slate-50 border-b dark:bg-slate-900 dark:border-slate-800">
+          <DialogTitle className="text-xl font-bold text-slate-900 flex items-center dark:text-white">
+            <MailPlus className="mr-2 h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             Crear Campaña
           </DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-4 mb-4 px-6 pt-2">
-            <TabsTrigger value="details">Detalles</TabsTrigger>
-            <TabsTrigger value="audience">Audiencia</TabsTrigger>
-            <TabsTrigger value="content">Contenido</TabsTrigger>
-            <TabsTrigger value="schedule">Agenda</TabsTrigger>
+          <TabsList className="grid grid-cols-4 mb-6 px-6 pt-4 bg-white dark:bg-slate-900">
+            <TabsTrigger
+              value="details"
+              className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-indigo-900/30 dark:data-[state=active]:text-indigo-400"
+            >
+              Detalles
+            </TabsTrigger>
+            <TabsTrigger
+              value="audience"
+              className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-indigo-900/30 dark:data-[state=active]:text-indigo-400"
+            >
+              Audiencia
+            </TabsTrigger>
+            <TabsTrigger
+              value="content"
+              className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-indigo-900/30 dark:data-[state=active]:text-indigo-400"
+            >
+              Contenido
+            </TabsTrigger>
+            <TabsTrigger
+              value="schedule"
+              className="data-[state=active]:bg-indigo-50 data-[state=active]:text-indigo-700 dark:data-[state=active]:bg-indigo-900/30 dark:data-[state=active]:text-indigo-400"
+            >
+              Agenda
+            </TabsTrigger>
           </TabsList>
 
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(onSubmit)}
-              className="space-y-4 px-6 pb-6"
+              className="space-y-4 px-6 pb-6 bg-white dark:bg-slate-900"
             >
               <TabsContent value="details" className="space-y-4 mt-0">
-                <Card>
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
                   <CardContent className="pt-6">
                     <FormField
                       control={form.control}
                       name="campaignName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="font-medium">
-                            <span className="font-bold">Nombre</span> de la
+                          <FormLabel className="text-slate-700 dark:text-slate-300">
+                            <span className="font-medium">Nombre</span> de la
                             Campaña
                           </FormLabel>
                           <FormControl>
                             <Input
                               placeholder='Por ejemplo, "Promoción de primavera 2025"'
-                              className="bg-gray-50 focus-visible:ring-blue-500"
+                              className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 dark:bg-slate-800 dark:border-slate-700"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-rose-500" />
                         </FormItem>
                       )}
                     />
@@ -190,17 +218,17 @@ export default function CreateCampaignModal() {
                       name="description"
                       render={({ field }) => (
                         <FormItem className="mt-4">
-                          <FormLabel className="font-medium">
+                          <FormLabel className="text-slate-700 dark:text-slate-300">
                             Descripción (Opcional)
                           </FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Breve descripción sobre el objetivo de la campaña"
-                              className="bg-gray-50 focus-visible:ring-blue-500 min-h-24"
+                              className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 min-h-24 dark:bg-slate-800 dark:border-slate-700"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-rose-500" />
                         </FormItem>
                       )}
                     />
@@ -209,22 +237,22 @@ export default function CreateCampaignModal() {
               </TabsContent>
 
               <TabsContent value="audience" className="space-y-4 mt-0">
-                <Card>
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
                   <CardContent className="pt-6">
                     <FormField
                       control={form.control}
                       name="contactList"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="font-medium">
-                            Seleccionar lista de contactos{" "}
+                          <FormLabel className="text-slate-700 dark:text-slate-300">
+                            Seleccionar lista de contactos
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
                           >
                             <FormControl>
-                              <SelectTrigger className="bg-gray-50 focus-visible:ring-blue-500">
+                              <SelectTrigger className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 dark:bg-slate-800 dark:border-slate-700">
                                 <SelectValue placeholder="Elegir" />
                               </SelectTrigger>
                             </FormControl>
@@ -237,7 +265,7 @@ export default function CreateCampaignModal() {
                                 ))}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
+                          <FormMessage className="text-rose-500" />
                         </FormItem>
                       )}
                     />
@@ -246,14 +274,14 @@ export default function CreateCampaignModal() {
               </TabsContent>
 
               <TabsContent value="content" className="space-y-4 mt-0">
-                <Card>
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
                   <CardContent className="pt-6">
                     <FormField
                       control={form.control}
                       name="template"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="font-medium">
+                          <FormLabel className="text-slate-700 dark:text-slate-300">
                             Plantilla
                           </FormLabel>
                           <Select
@@ -261,7 +289,7 @@ export default function CreateCampaignModal() {
                             value={field.value}
                           >
                             <FormControl>
-                              <SelectTrigger className="bg-gray-50 focus-visible:ring-blue-500">
+                              <SelectTrigger className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 dark:bg-slate-800 dark:border-slate-700">
                                 <SelectValue placeholder="Escoge una Plantilla" />
                               </SelectTrigger>
                             </FormControl>
@@ -280,29 +308,29 @@ export default function CreateCampaignModal() {
                               )}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
+                          <FormMessage className="text-rose-500" />
                         </FormItem>
                       )}
                     />
 
-                    <Separator className="my-4" />
+                    <Separator className="my-4 bg-slate-200 dark:bg-slate-700" />
 
                     <FormField
                       control={form.control}
                       name="subject"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="font-medium">
+                          <FormLabel className="text-slate-700 dark:text-slate-300">
                             Línea de asunto (Opcional)
                           </FormLabel>
                           <FormControl>
                             <Input
                               placeholder=""
-                              className="bg-gray-50 focus-visible:ring-blue-500"
+                              className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 dark:bg-slate-800 dark:border-slate-700"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-rose-500" />
                         </FormItem>
                       )}
                     />
@@ -312,19 +340,19 @@ export default function CreateCampaignModal() {
                       name="emailBody"
                       render={({ field }) => (
                         <FormItem className="mt-4">
-                          <FormLabel className="font-medium">
-                            <span className="font-bold">Contenido</span> del
+                          <FormLabel className="text-slate-700 dark:text-slate-300">
+                            <span className="font-medium">Contenido</span> del
                             Email (puedes editar esto después)
                           </FormLabel>
                           <FormControl>
                             <Textarea
                               placeholder="Escribe aquí el contenido de tu correo electrónico o utiliza variables de plantilla."
                               rows={8}
-                              className="bg-gray-50 focus-visible:ring-blue-500 min-h-32"
+                              className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 min-h-32 dark:bg-slate-800 dark:border-slate-700"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-rose-500" />
                         </FormItem>
                       )}
                     />
@@ -333,17 +361,18 @@ export default function CreateCampaignModal() {
               </TabsContent>
 
               <TabsContent value="schedule" className="space-y-4 mt-0">
-                <Card>
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
                   <CardContent className="pt-6">
                     <FormField
                       control={form.control}
                       name="isScheduled"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="font-medium">
-                            Opciones de <span className="font-bold">Envío</span>{" "}
+                          <FormLabel className="text-slate-700 dark:text-slate-300">
+                            Opciones de{" "}
+                            <span className="font-medium">Envío</span>
                           </FormLabel>
-                          <div className="flex items-center space-x-4 mt-2">
+                          <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
                             <Button
                               type="button"
                               variant={!field.value ? "default" : "outline"}
@@ -351,12 +380,12 @@ export default function CreateCampaignModal() {
                               className={cn(
                                 "flex-1 h-14",
                                 !field.value
-                                  ? "bg-blue-600 hover:bg-blue-700"
-                                  : "border-2"
+                                  ? "bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-600 dark:hover:bg-indigo-700"
+                                  : "border-slate-200 dark:border-slate-700"
                               )}
                             >
                               <Send className="mr-2 h-4 w-4" />
-                              Enviar inmediatamente{" "}
+                              Enviar inmediatamente
                             </Button>
                             <Button
                               type="button"
@@ -365,15 +394,15 @@ export default function CreateCampaignModal() {
                               className={cn(
                                 "flex-1 h-14",
                                 field.value
-                                  ? "bg-blue-600 hover:bg-blue-700"
-                                  : "border-2"
+                                  ? "bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-600 dark:hover:bg-indigo-700"
+                                  : "border-slate-200 dark:border-slate-700"
                               )}
                             >
                               <Clock className="mr-2 h-4 w-4" />
                               Agendar para después
                             </Button>
                           </div>
-                          <FormMessage />
+                          <FormMessage className="text-rose-500" />
                         </FormItem>
                       )}
                     />
@@ -384,8 +413,8 @@ export default function CreateCampaignModal() {
                         name="scheduleDate"
                         render={({ field }) => (
                           <FormItem className="mt-4">
-                            <FormLabel className="font-medium">
-                              Seleccione fecha y hora{" "}
+                            <FormLabel className="text-slate-700 dark:text-slate-300">
+                              Seleccione fecha y hora
                             </FormLabel>
                             <Popover>
                               <PopoverTrigger asChild>
@@ -393,8 +422,9 @@ export default function CreateCampaignModal() {
                                   <Button
                                     variant="outline"
                                     className={cn(
-                                      "w-full justify-start text-left font-normal border-2",
-                                      !field.value && "text-muted-foreground"
+                                      "w-full justify-start text-left font-normal border-slate-200 dark:border-slate-700",
+                                      !field.value &&
+                                        "text-slate-500 dark:text-slate-400"
                                     )}
                                   >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -412,10 +442,11 @@ export default function CreateCampaignModal() {
                                   selected={field.value}
                                   onSelect={field.onChange}
                                   initialFocus
+                                  className="border-slate-200 dark:border-slate-700"
                                 />
                               </PopoverContent>
                             </Popover>
-                            <FormMessage />
+                            <FormMessage className="text-rose-500" />
                           </FormItem>
                         )}
                       />
@@ -435,26 +466,61 @@ export default function CreateCampaignModal() {
                     else if (activeTab === "schedule") setActiveTab("content");
                   }}
                   className={cn(
-                    "border-2",
+                    "border-slate-200 dark:border-slate-700",
                     activeTab === "details" && "invisible"
                   )}
                 >
+                  <ChevronLeft className="mr-1 h-4 w-4" />
                   Anterior
                 </Button>
 
-                <button
+                <Button
                   type="button"
-                  className="bg-blue-400 p-2 rounded-md text-white text-sm hover:bg-blue-300 transition-all"
+                  disabled={isSubmitting}
+                  className="bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700"
                   onClick={() => {
                     if (activeTab === "schedule") {
-                      onSubmit(form.getValues()); // Submit the form directly
+                      form.handleSubmit(onSubmit)();
                     } else {
                       advanceTab();
                     }
                   }}
                 >
-                  {activeTab === "schedule" ? "Crear campaña" : "Siguiente"}
-                </button>
+                  {activeTab === "schedule" ? (
+                    isSubmitting ? (
+                      <span className="flex items-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Creando...
+                      </span>
+                    ) : (
+                      "Crear campaña"
+                    )
+                  ) : (
+                    <>
+                      Siguiente
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
               </div>
             </form>
           </Form>

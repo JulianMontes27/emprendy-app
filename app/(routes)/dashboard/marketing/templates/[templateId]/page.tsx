@@ -24,7 +24,8 @@ const TemplateIdPage = async ({
       {/* Modern Title Section */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">
-          Editando: <span className="text-blue-600">{template.name}</span>
+          Editando plantilla:{" "}
+          <span className="text-blue-600">{template.name}</span>
         </h1>
         <p className="text-gray-600 mt-2">
           Personalice su plantilla de correo electrónico para que coincida con

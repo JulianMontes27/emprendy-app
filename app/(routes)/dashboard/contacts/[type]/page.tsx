@@ -21,6 +21,9 @@ import {
   FileText,
   AlertCircle,
   X,
+  Plus,
+  User,
+  Save,
 } from "lucide-react";
 import {
   Card,
@@ -39,13 +42,37 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ColumnMappingModal } from "../../_components/contacts/column-mapping-modal";
-import { unknown } from "zod";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ImportPageProps {
   params: {
     type: string;
   };
 }
+
+// Interface for manual contact entry
+interface ManualContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  company: string;
+  notes: string;
+}
+
+// Empty contact template
+const emptyContact: ManualContact = {
+  id: "",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  company: "",
+  notes: "",
+};
 
 const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
   const [importType, setImportType] = useState(params.type || "excel");
@@ -60,7 +87,25 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
   const [rawData, setRawData] = useState<any[]>([]);
   const [showMapping, setShowMapping] = useState(false);
 
+  // State for manual contacts
+  const [manualContacts, setManualContacts] = useState<ManualContact[]>([
+    { ...emptyContact, id: generateId() },
+  ]);
+  const [currentContact, setCurrentContact] = useState<ManualContact>({
+    ...emptyContact,
+    id: generateId(),
+  });
+  const [isSavingManual, setIsSavingManual] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
+
   const router = useRouter();
+
+  // Generate unique ID for contacts
+  function generateId() {
+    return Math.random().toString(36).substring(2, 9);
+  }
 
   // Handle file selection
   const handleFileChange = async (
@@ -72,7 +117,6 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
       await processFile(selectedFile);
     }
   };
-
   // Get accepted file types
   const getAcceptedFileTypes = () => {
     switch (importType) {
@@ -84,7 +128,6 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
         return "";
     }
   };
-
   // Handle drag and drop
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -94,7 +137,6 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
       await processFile(droppedFile);
     }
   };
-
   // Process uploaded file
   const processFile = async (file: File) => {
     setFile(file);
@@ -137,13 +179,11 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
       );
     }
   };
-
   // Handle import type change
   const handleImportTypeChange = (value: string) => {
     setImportType(value);
     router.push(`/dashboard/contacts/${value}`);
   };
-
   // Remove selected file
   const removeFile = () => {
     setFile(null);
@@ -152,7 +192,6 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
     setExcelColumns([]);
     setRawData([]);
   };
-
   // Get import type icon
   const getImportTypeIcon = () => {
     switch (importType) {
@@ -164,7 +203,6 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
         return <FileText className="h-5 w-5 text-gray-500" />;
     }
   };
-
   // Get import type label
   const getImportTypeLabel = () => {
     switch (importType) {
@@ -178,7 +216,6 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
         return importType;
     }
   };
-
   // Handle mapping submition
   const handleMappingComplete = async (mapping: Record<string, string>) => {
     const processedContacts = rawData.map((row) => {
@@ -248,6 +285,113 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
       return null;
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // Handle manual contact input change
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setCurrentContact((prev) => ({
+      ...prev,
+      // set the updated name
+      [name]: value,
+    }));
+
+    // Clear validation error when field is changed
+    if (validationErrors[name]) {
+      const newErrors = { ...validationErrors };
+      delete newErrors[name];
+      setValidationErrors(newErrors);
+    }
+  };
+
+  // Add current contact to the list
+  const addContact = () => {
+    // Validate required fields
+    const errors: Record<string, string> = {};
+    if (!currentContact.firstName.trim()) {
+      errors.firstName = "El nombre es requerido";
+    }
+    if (!currentContact.email.trim()) {
+      errors.email = "El correo electrónico es requerido";
+    } else if (!/\S+@\S+\.\S+/.test(currentContact.email)) {
+      errors.email = "Correo electrónico inválido";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    // Add current contact to the list
+    setManualContacts((prev) => [...prev, { ...currentContact }]);
+
+    // Reset current contact form
+    setCurrentContact({ ...emptyContact, id: generateId() });
+    setValidationErrors({});
+
+    toast.success("Contacto agregado a la lista");
+  };
+
+  // Remove a contact from the list
+  const removeContact = (id: string) => {
+    setManualContacts((prev) => prev.filter((contact) => contact.id !== id));
+    toast.success("Contacto eliminado");
+  };
+
+  // Handle manual contact form submission
+  const handleManualEntry = async () => {
+    if (manualContacts.length === 0) {
+      toast.error("Agrega al menos un contacto para continuar");
+      return;
+    }
+
+    // Format contacts for API
+    const processedContacts = manualContacts.map((contact) => ({
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      email: contact.email,
+      phone: contact.phone,
+      company: contact.company,
+      notes: contact.notes,
+    }));
+
+    try {
+      setIsSavingManual(true);
+      setError(null);
+
+      // Call API to save manual contacts
+      const response = await axios.post("/api/upload/manual", {
+        contacts: processedContacts,
+      });
+
+      toast.success(
+        `${processedContacts.length} contactos importados con éxito`
+      );
+      router.push("/dashboard/contacts");
+
+      return response.data;
+    } catch (error) {
+      console.error("Error al guardar contactos manuales:", error);
+
+      if (axios.isAxiosError(error)) {
+        const errorMessage =
+          error.response?.data?.message ||
+          "Error al guardar los contactos. Por favor intenta de nuevo.";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } else {
+        setError("Error desconocido.");
+        toast.error(
+          "Error desconocido. Refresca la página e intenta de nuevo."
+        );
+      }
+
+      return null;
+    } finally {
+      setIsSavingManual(false);
     }
   };
 
@@ -496,17 +640,186 @@ const ImportPage: React.FC<ImportPageProps> = ({ params }) => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground mb-4">
-                Podrás añadir contactos uno por uno en la próxima página (haz
-                clic en continuar).
-              </p>
+              <div className="space-y-6">
+                {/* Current contacts list */}
+                {manualContacts.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="font-medium mb-3">
+                      Contactos agregados ({manualContacts.length})
+                    </h3>
+                    <ScrollArea className="h-48 border rounded-md">
+                      <div className="p-4 space-y-2">
+                        {manualContacts.map((contact, index) => (
+                          <div
+                            key={contact.id}
+                            className="flex items-center justify-between p-3 bg-muted/50 rounded-md"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="h-4 w-4 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-medium">
+                                  {contact.firstName} {contact.lastName}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {contact.email || "Sin correo"} •{" "}
+                                  {contact.company || "Sin empresa"}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeContact(contact.id)}
+                              className="h-8 w-8 text-destructive"
+                            >
+                              <X className="h-4 w-4" />
+                              <span className="sr-only">Eliminar</span>
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {/* New contact form */}
+                <div className="space-y-4">
+                  <h3 className="font-medium">Agregar nuevo contacto</h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label
+                        htmlFor="firstName"
+                        className="flex items-center gap-1"
+                      >
+                        Nombre <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        value={currentContact.firstName}
+                        onChange={handleInputChange}
+                        placeholder="Ej: Juan"
+                        className={
+                          validationErrors.firstName ? "border-destructive" : ""
+                        }
+                      />
+                      {validationErrors.firstName && (
+                        <p className="text-xs text-destructive mt-1">
+                          {validationErrors.firstName}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Apellido</Label>
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        value={currentContact.lastName}
+                        onChange={handleInputChange}
+                        placeholder="Ej: Pérez"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="email" className="flex items-center gap-1">
+                      Correo electrónico{" "}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={currentContact.email}
+                      onChange={handleInputChange}
+                      placeholder="Ej: juan@example.com"
+                      className={
+                        validationErrors.email ? "border-destructive" : ""
+                      }
+                    />
+                    {validationErrors.email && (
+                      <p className="text-xs text-destructive mt-1">
+                        {validationErrors.email}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Teléfono</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={currentContact.phone}
+                      onChange={handleInputChange}
+                      placeholder="Ej: +1 234 567 890"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="company">Empresa</Label>
+                    <Input
+                      id="company"
+                      name="company"
+                      value={currentContact.company}
+                      onChange={handleInputChange}
+                      placeholder="Ej: Emprendy"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="notes">Notas</Label>
+                    <Textarea
+                      id="notes"
+                      name="notes"
+                      value={currentContact.notes}
+                      onChange={handleInputChange}
+                      placeholder="Notas adicionales..."
+                    />
+                  </div>
+
+                  <Button
+                    onClick={addContact}
+                    type="button"
+                    className="w-full flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" /> Agregar a la lista
+                  </Button>
+                </div>
+              </div>
             </CardContent>
-            <CardFooter className="flex justify-end border-t pt-6 w-full">
+            <CardFooter className="flex justify-between border-t pt-6">
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <Button
-                onClick={() => setShowMapping(true)}
-                disabled={isUploading}
+                variant="outline"
+                onClick={() => router.push("/dashboard/contacts")}
+                disabled={isSavingManual}
               >
-                {isUploading ? "Importando..." : "Continuar"}
+                Cancelar
+              </Button>
+
+              <Button
+                onClick={handleManualEntry}
+                disabled={manualContacts.length === 0 || isSavingManual}
+                className="flex items-center gap-2"
+              >
+                {isSavingManual ? (
+                  <>Guardando...</>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" /> Guardar contactos
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>
